@@ -1,0 +1,201 @@
+,Domain,Kingdom,Phylum,Class,Order,Family,Genus,Species
+0,Eukaryota,Animalia,Chordata,Aves,Procellariiformes,Diomedeidae,Phoebastria,Black footed Albatross
+1,Eukaryota,Animalia,Chordata,Aves,Procellariiformes,Diomedeidae,Phoebastria,Laysan Albatross
+2,Eukaryota,Animalia,Chordata,Aves,Procellariiformes,Diomedeidae,Phoebetria,Sooty Albatross
+3,Eukaryota,Animalia,Chordata,Aves,Cuculiformes,Cuculidae,Crotophaga,Groove billed Ani
+4,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Alcidae,Aethia,Crested Auklet
+5,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Alcidae,Aethia,Least Auklet
+6,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Alcidae,Aethia,Parakeet Auklet
+7,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Alcidae,Cerorhinca,Rhinoceros Auklet
+8,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Icteridae,Euphagus,Brewer Blackbird
+9,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Icteridae,Agelaius,Red winged Blackbird
+10,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Icteridae,Euphagus,Rusty Blackbird
+11,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Icteridae,Xanthocephalus,Yellow headed Blackbird
+12,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Icteridae,Dolichonyx,Bobolink
+13,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Cardinalidae,Passerina,Indigo Bunting
+14,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Cardinalidae,Passerina,Lazuli Bunting
+15,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Cardinalidae,Passerina,Painted Bunting
+16,,,,,,,,Cardinal
+17,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Ptilonorhynchidae,Ailuroedus,Spotted Catbird
+18,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Mimidae,Dumetella,Gray Catbird
+19,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Icteriidae,Icteria,Yellow breasted Chat
+20,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Passerellidae,Pipilo,Eastern Towhee
+21,Eukaryota,Animalia,Chordata,Aves,Caprimulgiformes,Caprimulgidae,Antrostomus,Chuck will Widow
+22,Eukaryota,Animalia,Chordata,Aves,Suliformes,Phalacrocoracidae,Urile,Brandt Cormorant
+23,Eukaryota,Animalia,Chordata,Aves,Suliformes,Phalacrocoracidae,Urile,Red faced Cormorant
+24,Eukaryota,Animalia,Chordata,Aves,Suliformes,Phalacrocoracidae,Urile,Pelagic Cormorant
+25,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Icteridae,Molothrus,Bronzed Cowbird
+26,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Icteridae,Molothrus,Shiny Cowbird
+27,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Certhiidae,Certhia,Brown Creeper
+28,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Corvidae,Corvus,American Crow
+29,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Corvidae,Corvus,Fish Crow
+30,Eukaryota,Animalia,Chordata,Aves,Cuculiformes,Cuculidae,Coccyzus,Black billed Cuckoo
+31,Eukaryota,Animalia,Chordata,Aves,Cuculiformes,Cuculidae,Coccyzus,Mangrove Cuckoo
+32,Eukaryota,Animalia,Chordata,Aves,Cuculiformes,Cuculidae,Coccyzus,Yellow billed Cuckoo
+33,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Fringillidae,Leucosticte,Gray crowned Rosy Finch
+34,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Fringillidae,Haemorhous,Purple Finch
+35,Eukaryota,Animalia,Chordata,Aves,Piciformes,Picidae,Colaptes,Northern Flicker
+36,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Tyrannidae,Empidonax,Acadian Flycatcher
+37,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Tyrannidae,Myiarchus,Great Crested Flycatcher
+38,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Tyrannidae,Empidonax,Least Flycatcher
+39,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Tyrannidae,Contopus,Olive sided Flycatcher
+40,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Tyrannidae,Tyrannus,Scissor tailed Flycatcher
+41,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Tyrannidae,Pyrocephalus,Vermilion Flycatcher
+42,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Tyrannidae,Empidonax,Yellow bellied Flycatcher
+43,Eukaryota,Animalia,Chordata,Aves,Suliformes,Fregatidae,Fregata,Frigatebird
+44,Eukaryota,Animalia,Chordata,Aves,Procellariiformes,Procellariidae,Fulmarus,Northern Fulmar
+45,Eukaryota,Animalia,Chordata,Aves,Anseriformes,Anatidae,Mareca,Gadwall
+46,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Fringillidae,Spinus,American Goldfinch
+47,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Fringillidae,Carduelis,European Goldfinch
+48,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Icteridae,Quiscalus,Boat tailed Grackle
+49,Eukaryota,Animalia,Chordata,Aves,Podicipediformes,Podicipedidae,Podiceps,Eared Grebe
+50,Eukaryota,Animalia,Chordata,Aves,Podicipediformes,Podicipedidae,Podiceps,Horned Grebe
+51,Eukaryota,Animalia,Chordata,Aves,Podicipediformes,Podicipedidae,Podilymbus,Pied billed Grebe
+52,Eukaryota,Animalia,Chordata,Aves,Podicipediformes,Podicipedidae,Aechmophorus,Western Grebe
+53,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Cardinalidae,Passerina,Blue Grosbeak
+54,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Fringillidae,Hesperiphona,Evening Grosbeak
+55,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Fringillidae,Pinicola,Pine Grosbeak
+56,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Cardinalidae,Pheucticus,Rose breasted Grosbeak
+57,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Alcidae,Cepphus,Pigeon Guillemot
+58,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Laridae,Larus,California Gull
+59,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Laridae,Larus,Glaucous winged Gull
+60,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Laridae,Larus,Heermann Gull
+61,,,,,,,,Herring Gull
+62,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Laridae,Pagophila,Ivory Gull
+63,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Laridae,Larus,Ring billed Gull
+64,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Laridae,Larus,Slaty backed Gull
+65,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Laridae,Larus,Western Gull
+66,Eukaryota,Animalia,Chordata,Aves,Apodiformes,Trochilidae,Calypte,Anna Hummingbird
+67,Eukaryota,Animalia,Chordata,Aves,Apodiformes,Trochilidae,Archilochus,Ruby throated Hummingbird
+68,Eukaryota,Animalia,Chordata,Aves,Apodiformes,Trochilidae,Selasphorus,Rufous Hummingbird
+69,Eukaryota,Animalia,Chordata,Aves,Apodiformes,Trochilidae,Colibri,Green Violetear
+70,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Stercorariidae,Stercorarius,Long tailed Jaeger
+71,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Stercorariidae,Stercorarius,Pomarine Jaeger
+72,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Corvidae,Cyanocitta,Blue Jay
+73,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Corvidae,Aphelocoma,Florida Jay
+74,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Corvidae,Cyanocorax,Green Jay
+75,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Passerellidae,Junco,Dark eyed Junco
+76,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Tyrannidae,Tyrannus,Tropical Kingbird
+77,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Tyrannidae,Tyrannus,Gray Kingbird
+78,Eukaryota,Animalia,Chordata,Aves,Coraciiformes,Alcedinidae,Megaceryle,Belted Kingfisher
+79,Eukaryota,Animalia,Chordata,Aves,Coraciiformes,Alcedinidae,Chloroceryle,Green Kingfisher
+80,Eukaryota,Animalia,Chordata,Aves,Coraciiformes,Alcedinidae,Ceryle,Pied Kingfisher
+81,Eukaryota,Animalia,Chordata,Aves,Coraciiformes,Alcedinidae,Megaceryle,Ringed Kingfisher
+82,Eukaryota,Animalia,Chordata,Aves,Coraciiformes,Alcedinidae,Halcyon,White breasted Kingfisher
+83,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Laridae,Rissa,Red legged Kittiwake
+84,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Alaudidae,Eremophila,Horned Lark
+85,Eukaryota,Animalia,Chordata,Aves,Gaviiformes,Gaviidae,Gavia,Pacific Loon
+86,Eukaryota,Animalia,Chordata,Aves,Anseriformes,Anatidae,Anas,Mallard
+87,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Icteridae,Sturnella,Western Meadowlark
+88,Eukaryota,Animalia,Chordata,Aves,Anseriformes,Anatidae,Lophodytes,Hooded Merganser
+89,Eukaryota,Animalia,Chordata,Aves,Anseriformes,Anatidae,Mergus,Red breasted Merganser
+90,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Mimidae,,Mockingbird
+91,Eukaryota,Animalia,Chordata,Aves,Caprimulgiformes,Caprimulgidae,,Nighthawk
+92,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Corvidae,Nucifraga,Clark Nutcracker
+93,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Sittidae,Sitta,White breasted Nuthatch
+94,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Icteridae,Icterus,Baltimore Oriole
+95,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Icteridae,Icterus,Hooded Oriole
+96,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Icteridae,Icterus,Orchard Oriole
+97,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Icteridae,Icterus,Scott Oriole
+98,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Seiurus,Ovenbird
+99,Eukaryota,Animalia,Chordata,Aves,Pelecaniformes,Pelecanidae,Pelecanus,Brown Pelican
+100,Eukaryota,Animalia,Chordata,Aves,Pelecaniformes,Pelecanidae,Pelecanus,White Pelican
+101,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Tyrannidae,Contopus,Western Wood Pewee
+102,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Tyrannidae,Sayornis,Sayornis
+103,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Motacillidae,Anthus,American Pipit
+104,Eukaryota,Animalia,Chordata,Aves,Caprimulgiformes,Caprimulgidae,Antrostomus,Whip poor Will
+105,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Alcidae,Fratercula,Horned Puffin
+106,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Corvidae,Corvus,Common Raven
+107,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Corvidae,Corvus,White necked Raven
+108,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Setophaga,American Redstart
+109,Eukaryota,Animalia,Chordata,Aves,Cuculiformes,Cuculidae,Geococcyx,Geococcyx
+110,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Laniidae,Lanius,Loggerhead Shrike
+111,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Laniidae,Lanius,Great Grey Shrike
+112,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Passerellidae,Centronyx,Baird Sparrow
+113,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Passerellidae,Amphispiza,Black throated Sparrow
+114,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Passerellidae,Spizella,Brewer Sparrow
+115,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Passerellidae,Spizella,Chipping Sparrow
+116,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Passerellidae,Spizella,Clay colored Sparrow
+117,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Passeridae,Passer,House Sparrow
+118,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Passerellidae,Spizella,Field Sparrow
+119,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Passerellidae,Passerella,Fox Sparrow
+120,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Passerellidae,Ammodramus,Grasshopper Sparrow
+121,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Passerellidae,Zonotrichia,Harris Sparrow
+122,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Passerellidae,Centronyx,Henslow Sparrow
+123,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Passerellidae,Ammospiza,Le Conte Sparrow
+124,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Passerellidae,Melospiza,Lincoln Sparrow
+125,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Passerellidae,Ammospiza,Nelson Sharp tailed Sparrow
+126,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Passerellidae,Passerculus,Savannah Sparrow
+127,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Passerellidae,Ammospiza,Seaside Sparrow
+128,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Passerellidae,Melospiza,Song Sparrow
+129,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Passeridae,Passer,Tree Sparrow
+130,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Passerellidae,Pooecetes,Vesper Sparrow
+131,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Passerellidae,Zonotrichia,White crowned Sparrow
+132,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Passerellidae,Zonotrichia,White throated Sparrow
+133,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Sturnidae,Lamprotornis,Cape Glossy Starling
+134,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Hirundinidae,Riparia,Bank Swallow
+135,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Hirundinidae,Hirundo,Barn Swallow
+136,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Hirundinidae,Petrochelidon,Cliff Swallow
+137,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Hirundinidae,Tachycineta,Tree Swallow
+138,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Cardinalidae,Piranga,Scarlet Tanager
+139,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Cardinalidae,Piranga,Summer Tanager
+140,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Laridae,Sterna,Artic Tern
+141,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Laridae,Chlidonias,Black Tern
+142,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Laridae,Hydroprogne,Caspian Tern
+143,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Laridae,Sterna,Common Tern
+144,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Laridae,Thalasseus,Elegant Tern
+145,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Laridae,Sterna,Forsters Tern
+146,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Laridae,Sternula,Least Tern
+147,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Passerellidae,Pipilo,Green tailed Towhee
+148,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Mimidae,Toxostoma,Brown Thrasher
+149,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Mimidae,Oreoscoptes,Sage Thrasher
+150,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Vireonidae,Vireo,Black capped Vireo
+151,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Vireonidae,Vireo,Blue headed Vireo
+152,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Vireonidae,Vireo,Philadelphia Vireo
+153,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Vireonidae,Vireo,Red eyed Vireo
+154,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Vireonidae,Vireo,Warbling Vireo
+155,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Vireonidae,Vireo,White eyed Vireo
+156,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Vireonidae,Vireo,Yellow throated Vireo
+157,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Setophaga,Bay breasted Warbler
+158,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Mniotilta,Black and white Warbler
+159,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Setophaga,Black throated Blue Warbler
+160,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Vermivora,Blue winged Warbler
+161,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Cardellina,Canada Warbler
+162,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Setophaga,Cape May Warbler
+163,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Setophaga,Cerulean Warbler
+164,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Setophaga,Chestnut sided Warbler
+165,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Vermivora,Golden winged Warbler
+166,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Setophaga,Hooded Warbler
+167,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Geothlypis,Kentucky Warbler
+168,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Setophaga,Magnolia Warbler
+169,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Geothlypis,Mourning Warbler
+170,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Setophaga,Myrtle Warbler
+171,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Leiothlypis,Nashville Warbler
+172,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Leiothlypis,Orange crowned Warbler
+173,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Setophaga,Palm Warbler
+174,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Setophaga,Pine Warbler
+175,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Setophaga,Prairie Warbler
+176,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Protonotaria,Prothonotary Warbler
+177,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Limnothlypis,Swainson Warbler
+178,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Leiothlypis,Tennessee Warbler
+179,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Cardellina,Wilson Warbler
+180,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Helmitheros,Worm eating Warbler
+181,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Setophaga,Yellow Warbler
+182,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Parkesia,Northern Waterthrush
+183,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Parkesia,Louisiana Waterthrush
+184,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Bombycillidae,Bombycilla,Bohemian Waxwing
+185,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Bombycillidae,Bombycilla,Cedar Waxwing
+186,Eukaryota,Animalia,Chordata,Aves,Piciformes,Picidae,Picoides,American Three toed Woodpecker
+187,Eukaryota,Animalia,Chordata,Aves,Piciformes,Picidae,Dryocopus,Pileated Woodpecker
+188,Eukaryota,Animalia,Chordata,Aves,Piciformes,Picidae,Melanerpes,Red bellied Woodpecker
+189,Eukaryota,Animalia,Chordata,Aves,Piciformes,Picidae,Leuconotopicus,Red cockaded Woodpecker
+190,Eukaryota,Animalia,Chordata,Aves,Piciformes,Picidae,Melanerpes,Red headed Woodpecker
+191,Eukaryota,Animalia,Chordata,Aves,Piciformes,Picidae,Dryobates,Downy Woodpecker
+192,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Troglodytidae,Thryomanes,Bewick Wren
+193,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Troglodytidae,Campylorhynchus,Cactus Wren
+194,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Troglodytidae,Thryothorus,Carolina Wren
+195,,,,,,,,House Wren
+196,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Troglodytidae,Cistothorus,Marsh Wren
+197,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Troglodytidae,Salpinctes,Rock Wren
+198,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Troglodytidae,Troglodytes,Winter Wren
+199,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Parulidae,Geothlypis,Common Yellowthroat

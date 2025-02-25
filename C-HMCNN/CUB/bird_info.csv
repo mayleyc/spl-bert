@@ -15,7 +15,7 @@
 13,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Cardinalidae,Passerina,Indigo Bunting
 14,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Cardinalidae,Passerina,Lazuli Bunting
 15,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Cardinalidae,Passerina,Painted Bunting
-16,,,,,,,,Cardinal
+16,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Cardinalidae,Cardinalis,Cardinal
 17,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Ptilonorhynchidae,Ailuroedus,Spotted Catbird
 18,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Mimidae,Dumetella,Gray Catbird
 19,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Icteriidae,Icteria,Yellow breasted Chat
@@ -60,7 +60,7 @@
 58,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Laridae,Larus,California Gull
 59,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Laridae,Larus,Glaucous winged Gull
 60,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Laridae,Larus,Heermann Gull
-61,,,,,,,,Herring Gull
+61,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Laridae,Larus,Herring Gull
 62,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Laridae,Pagophila,Ivory Gull
 63,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Laridae,Larus,Ring billed Gull
 64,Eukaryota,Animalia,Chordata,Aves,Charadriiformes,Laridae,Larus,Slaty backed Gull
@@ -194,7 +194,7 @@
 192,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Troglodytidae,Thryomanes,Bewick Wren
 193,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Troglodytidae,Campylorhynchus,Cactus Wren
 194,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Troglodytidae,Thryothorus,Carolina Wren
-195,,,,,,,,House Wren
+195,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Troglodytidae,Troglodytes,House Wren
 196,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Troglodytidae,Cistothorus,Marsh Wren
 197,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Troglodytidae,Salpinctes,Rock Wren
 198,Eukaryota,Animalia,Chordata,Aves,Passeriformes,Troglodytidae,Troglodytes,Winter Wren

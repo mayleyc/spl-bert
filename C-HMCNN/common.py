@@ -6,6 +6,17 @@ import torch
 import numpy as np
 import networkx as nx
 
+import torchvision.transforms as T
+import torchvision.transforms.functional as F
+
+import os
+import re
+from PIL import Image
+
+from tqdm import tqdm
+
+import pandas as pd
+
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 
@@ -14,7 +25,10 @@ sys.path.append(os.path.join(sys.path[0], "."))
 os.environ["DATA_FOLDER"] = "."
 from cutils.parser import *
 from cutils import datasets
-
+csv_path = "CUB/bird_info.csv"
+csv_path_mini = "CUB/bird_info_mini.csv"
+mat_path = "cub_matrix.npy"
+mat_path_mini = "cub_matrix_mini.npy"
 
 input_dims = {
     "diatoms": 371,
@@ -29,6 +43,7 @@ input_dims = {
     "gasch2": 52,
     "seq": 529,
     "spo": 86,
+    "cub": 1333 #3199200,
 }
 
 output_dims_FUN = {
@@ -59,6 +74,7 @@ output_dims_others = {
     "imclef07a": 96,
     "imclef07d": 46,
     "reuters": 102,
+    "cub": 5, #200
 }
 
 output_dims = {
@@ -94,6 +110,7 @@ hidden_dims_others = {
     "enron": 1000,
     "imclef07a": 1000,
     "imclef07d": 1000,
+    "cub": 1000, #should be a hyperparameter? check for best performance
 }
 
 hidden_dims = {
@@ -109,14 +126,86 @@ def seed_all_rngs(seed):
     torch.manual_seed(seed)
     os.environ["PYTHONHASHSEED"] = str(seed)
 
+def is_descendant(df, val1, val2):
+    for _, row in df.iterrows(): #iterate through each row
+        if val1 in row.values and val2 in row.values:
+            val1_idx = row.index.get_loc(row[row == val1].index[0])  #trace up to compare the position
+            val2_idx = row.index.get_loc(row[row == val2].index[0])
+            if val1_idx is not None and val2_idx is not None and val1_idx < val2_idx:
+                return True
+    return False
+
+# convert the bird info csv into train.A
+def csv_2_matrix(df):
+    unique_values = []
+    for column_name in df.columns[-4:]:  # Focus on last 4 columns
+        uv_col_list = df[column_name].dropna().unique().tolist()  # Extract unique values
+        unique_values += uv_col_list
+    #return unique_values
+    mat = []
+    print("Building the matrix from unique values...")
+    for i in tqdm(unique_values):
+        for j in unique_values:
+            if is_descendant(df, i, j):
+                mat.append(1)
+            else:
+                mat.append(0)
+    
+    mat = np.array(mat).reshape(len(unique_values), len(unique_values))
+    return mat
+
+def resize_image(image, height=800, max_width=1333):
+        """
+        Resize the image while maintaining the aspect ratio:
+        - The **height** is fixed at `fixed_height` (800).
+        - The **width** is scaled proportionally and capped at `max_width` (1333).
+        """
+        W, H = image.size  # Get original width & height
+
+        # Compute the scale to match the fixed height
+        scale = height / H
+        new_H, new_W = height, int(W * scale)
+
+        # Ensure the width does not exceed the max_width
+        if new_W > max_width:
+            scale = max_width / new_W
+            new_H, new_W = int(new_H * scale), int(new_W * scale)
+
+        return F.resize(image, (new_H, new_W))
+
+def get_one_hot_labels(label_species: list, csv_path: str):
+    label_dict = {}
+    df = pd.read_csv(csv_path)
+    for i in label_species:
+        labels = []
+        row_idx, _ = np.where(df == i)
+        labels = df.loc[row_idx, df.columns[-4:]]
+        label_dict[i] = labels.values.tolist()[0] # converts to list and remove the outer list
+    #print(label_dict)
+    # Convert label_dict to tensors    
+    unique_values = []
+    for column_name in df.columns[-4:]:  # Focus on last 4 columns, from left to right
+        uv_col_list = df[column_name].dropna().unique().tolist()  # Extract unique values
+        unique_values += uv_col_list
+    # transform it into an index map for faster lookup
+    unique_val_map = {value:idx for idx, value in enumerate(unique_values)}
+    # from label_dict, create one-hot encoding for each label
+    ohe_dict = {}
+    for i in label_dict:
+        array = np.zeros(len(unique_values))
+        for j in label_dict[i]:
+            idx = unique_val_map.get(j)
+            if idx is not None:
+                array[idx] += 1
+
+        ohe_dict[i] = array
+
+    return ohe_dict
 
 def get_data_and_loaders(dataset_name, batch_size, device):
 
-    if "others" in dataset_name:
-        train, test = initialize_other_dataset(dataset_name, datasets)
-        val = None
-    else:
-        train, val, test = initialize_dataset(dataset_name, datasets)
+
+    train, val, test = initialize_dataset(dataset_name, datasets)
 
     # XXX einet dies unless we use validation here in, e.g., eisen
     preproc_X = (
@@ -127,7 +216,7 @@ def get_data_and_loaders(dataset_name, batch_size, device):
         missing_values=np.nan,
         strategy='mean'
     ).fit(preproc_X)
-
+    
     def process(dataset, shuffle=False):
         if dataset is None:
             return None

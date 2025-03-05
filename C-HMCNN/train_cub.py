@@ -232,7 +232,7 @@ def main():
     
     #print(ohe_dict)
     image_labels = [torch.from_numpy(ohe_dict[species]).to(device) for species in label_species]
-    print(image_labels[0])
+    
     #Define image transform process
     transform = T.Compose(
             [
@@ -457,7 +457,9 @@ def main():
             pred_y = (cmpe.get_mpe_inst(x.shape[0]) > 0).long()
 
             pred_y = pred_y.to('cpu')
+            print(pred_y)
             y = y.to('cpu')
+            print(y)
 
             num_correct = (pred_y == y.byte()).all(dim=-1).sum()
 

@@ -81,7 +81,7 @@ def parse_arff(arff_file, is_GO=False, is_test=False):
 
 
 def initialize_dataset(name, datasets):
-    is_GO, train, val, test = datasets[name]
+    is_GO, train, val, test = datasets[name] # see __init__.py where train, val, test are paths to arff files
     return arff_data(train, is_GO), arff_data(val, is_GO), arff_data(test, is_GO, True)
 
 def initialize_other_dataset(name, datasets):

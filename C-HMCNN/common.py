@@ -192,16 +192,14 @@ def get_one_hot_labels(label_species: list, csv_path: str):
     # from label_dict, create one-hot encoding for each label
     ohe_dict = {}
     for i in label_dict:
-        label_list = []
+        Y = []
         for j in label_dict[i]:
             array = np.zeros(len(unique_values), dtype=int)
             idx = unique_val_map.get(j)
             if idx is not None:
                 array[idx] += 1
-            label_list.append(array)
-        
-        Y = np.stack(label_list, axis=0)
-        ohe_dict[i] = Y
+            Y.append(array)
+        ohe_dict[i] = np.concatenate(Y, axis=0)
 
     return ohe_dict
 

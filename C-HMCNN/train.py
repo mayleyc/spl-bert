@@ -109,6 +109,7 @@ def main():
     dataset_name = args.dataset
     data = dataset_name.split('_')[0]
     ontology = dataset_name.split('_')[1]
+    
     from sklearn import preprocessing
 
     if ('others' in args.dataset):
@@ -118,6 +119,7 @@ def main():
     else:
         train, val, test = initialize_dataset(dataset_name, datasets)
         train.to_eval, val.to_eval, test.to_eval = torch.tensor(train.to_eval, dtype=torch.bool), torch.tensor(val.to_eval, dtype=torch.bool), torch.tensor(test.to_eval, dtype=torch.bool)
+        #print(train.to_eval, val.to_eval, test.to_eval)
 
     different_from_0 = torch.tensor(np.array((test.Y.sum(0)!=0), dtype = bool), dtype=torch.bool)
 
@@ -169,13 +171,14 @@ def main():
         if not os.path.isfile('constraints/' + dataset_name + '.sdd') or not os.path.isfile('constraints/' + dataset_name + '.vtree'):
             # Compute matrix of ancestors R
             # Given n classes, R is an (n x n) matrix where R_ij = 1 if class i is ancestor of class j
+            np.savetxt("foo.csv", train.A, delimiter=",")
             R = np.zeros(train.A.shape)
             np.fill_diagonal(R, 1)
             g = nx.DiGraph(train.A)
             for i in range(len(train.A)):
                 descendants = list(nx.descendants(g, i))
                 if descendants:
-                    R[i, descendants] = 1
+                    R[i, descendants] = 1 #adds 1 for all possible descendants of every node
             R = torch.tensor(R)
 
             #Transpose to get the ancestors for each node 

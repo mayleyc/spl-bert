@@ -29,6 +29,7 @@ csv_path = "CUB/bird_info.csv"
 csv_path_mini = "CUB/bird_info_mini.csv"
 mat_path = "cub_matrix.npy"
 mat_path_mini = "cub_matrix_mini.npy"
+images_dir = "CUB/CUB_200_2011/images"
 
 input_dims = {
     "diatoms": 371,
@@ -192,14 +193,12 @@ def get_one_hot_labels(label_species: list, csv_path: str):
     # from label_dict, create one-hot encoding for each label
     ohe_dict = {}
     for i in label_dict:
-        Y = []
         for j in label_dict[i]:
             array = np.zeros(len(unique_values), dtype=int)
             idx = unique_val_map.get(j)
             if idx is not None:
                 array[idx] += 1
-            Y.append(array)
-        ohe_dict[i] = np.concatenate(Y, axis=0)
+        ohe_dict[i] = array
 
     return ohe_dict
 

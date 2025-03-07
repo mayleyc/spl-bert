@@ -25,6 +25,8 @@ from GatingFunction import DenseGatingFunction
 from compute_mpe import CircuitMPE
 from pysdd.sdd import SddManager, Vtree
 
+from sklearn import preprocessing
+
 # misc
 from common import *
 
@@ -102,31 +104,35 @@ class CUB_Dataset(Dataset):
 
 class ConstrainedFFNNModel(nn.Module):
     """ C-HMCNN(h) model - during training it returns the not-constrained output that is then passed to MCLoss """
-    def __init__(self, input_dim, hidden_dim, output_dim, hyperparams, R):
+    def __init__(self, input_dim, hidden_dim, output_dim, hyperparams, R, dataset):
         super(ConstrainedFFNNModel, self).__init__()
         
         self.nb_layers = hyperparams['num_layers']
         self.R = R
-        
-        self.conv1 = nn.Conv2d(3, 32, 3)
-        self.conv2 = nn.Conv2d(32, 64, 3)
+        self.dataset = dataset
+        if "cub" in self.dataset:
+            self.conv1 = nn.Conv2d(3, 32, 3)
+            self.conv2 = nn.Conv2d(32, 64, 3)
 
-        self.pool = nn.MaxPool2d(2, 2) # Downsampling: reduce each dimension by half
+            self.pool = nn.MaxPool2d(2, 2) # Downsampling: reduce each dimension by half
 
-        self.conv3 = nn.Conv2d(64, 128, 3)
-        self.conv4 = nn.Conv2d(128, 256, 3)
+            self.conv3 = nn.Conv2d(64, 128, 3)
+            #self.conv4 = nn.Conv2d(128, 256, 3)
 
-        self.conv5 = nn.Conv2d(256, 512, 3)
-        self.conv6 = nn.Conv2d(512, 512, 3)
+            #self.conv5 = nn.Conv2d(256, 512, 3)
+            #self.conv6 = nn.Conv2d(512, 512, 3)
 
-        # Adaptive Pooling
-        self.global_pool = nn.AdaptiveAvgPool2d((7, 7)) # like resnet-50
+            # Adaptive Pooling
+            self.global_pool = nn.AdaptiveAvgPool2d((7, 7)) # like resnet-50
 
         fc = []
         
         for i in range(self.nb_layers):
             if i == 0:
-                fc.append(nn.Linear(512 * 7 * 7, hidden_dim))
+                if "cub" in dataset:
+                    fc.append(nn.Linear(128 * 7 * 7, hidden_dim))
+                else:
+                    fc.append(nn.Linear(input_dim, hidden_dim))
             elif i == self.nb_layers-1:
                 fc.append(nn.Linear(hidden_dim, output_dim))
             else:
@@ -141,17 +147,18 @@ class ConstrainedFFNNModel(nn.Module):
             self.f = nn.ReLU()
         
     def forward(self, x, sigmoid=False, log_sigmoid=False):
-        x = self.pool(self.f(self.conv1(x)))
-        x = self.pool(self.f(self.conv2(x)))
-        
-        x = self.pool(self.f(self.conv3(x)))
-        x = self.pool(self.f(self.conv4(x)))
-        
-        x = self.pool(self.f(self.conv5(x)))
-        x = self.pool(self.f(self.conv6(x)))
+        if "cub" in self.dataset:
+            x = self.pool(self.f(self.conv1(x)))
+            x = self.pool(self.f(self.conv2(x)))
+            
+            x = self.pool(self.f(self.conv3(x)))
+            #x = self.pool(self.f(self.conv4(x)))
+            
+            #x = self.pool(self.f(self.conv5(x)))
+            #x = self.pool(self.f(self.conv6(x)))
 
-        x = self.global_pool(x)
-        x = torch.flatten(x, 1)  # Flatten for fully connected layers
+            x = self.global_pool(x)
+            x = torch.flatten(x, 1)  # Flatten for fully connected layers
 
         for i in range(self.nb_layers):
             if i == self.nb_layers-1:
@@ -181,10 +188,16 @@ def main():
 
     # Set device
     torch.cuda.set_device(int(args.device))
+    #print(torch.cuda.is_available())  # Should print True
+    #print(torch.cuda.device_count())  # Should match the number of GPUs
+    #print(torch.cuda.get_device_name(0))  # Check which GPU PyTorch is using
 
     # Load train, val and test set
-    dataset_name = "cub"
-    hidden_dim = hidden_dims["others"][dataset_name]
+    dataset_name = args.dataset
+    data = dataset_name.split('_')[0]
+    ontology = dataset_name.split('_')[1]
+    hidden_dim = hidden_dims[ontology][data]
+
     num_epochs = args.n_epochs
 
     # Set the hyperparameters 
@@ -206,54 +219,71 @@ def main():
     import glob
     
     # list of files in cub 2011 and y labels
-    
-    images_dir = "CUB/CUB_200_2011/images" # folder names are y labels
-    #image_paths = glob.glob(os.path.join(images_dir, "*/*.jpg"))  # Search for .jpg files in subfolders
-    
-    #print(image_paths)
-    #Try out with 5 classes in CUB
-    # Get all class folder names
-    all_classes = sorted(os.listdir(images_dir))  # Sorting ensures consistency
+    if "cub" in args.dataset:
+        #Try out with 5 classes in CUB
+        # Get all class folder names
+        all_classes = sorted(os.listdir(images_dir))  # Sorting ensures consistency
 
-    # Select only the first 5 classes
-    selected_classes = all_classes[:5]
+        # Select only the first 5 classes
+        selected_classes = all_classes[:5]
 
-    # Get image paths only for selected classes
-    image_paths = []
-    for cls in selected_classes:
-        class_images = glob.glob(os.path.join(images_dir, cls, "*.jpg"))
-        image_paths.extend(class_images)
+        # Get image paths only for selected classes
+        image_paths = []
+        for cls in selected_classes:
+            class_images = glob.glob(os.path.join(images_dir, cls, "*.jpg"))
+            image_paths.extend(class_images)
 
-    labels_unprocessed = [os.path.basename(os.path.dirname(path)) for path in image_paths]
-    label_species = [label.split('.')[-1] for label in labels_unprocessed]
-    label_species = [re.sub('_', ' ', label) for label in label_species] # the species-level label for each image
-    # Create one-hot encoding based on species lookup in the csv
-    ohe_dict = get_one_hot_labels(label_species, csv_path_mini)
-    
-    #print(ohe_dict)
-    image_labels = [torch.from_numpy(ohe_dict[species]).to(device) for species in label_species]
-    
-    #Define image transform process
-    transform = T.Compose(
-            [
-                T.Lambda(lambda img: resize_image(img, height=800, max_width=1333)),  # Resize with fixed height
-                #T.Resize(800, max_size=1333), # like GroundingDINO
-                T.ToTensor(),
-                T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-            ]
-        )
+        labels_unprocessed = [os.path.basename(os.path.dirname(path)) for path in image_paths]
+        label_species = [label.split('.')[-1] for label in labels_unprocessed]
+        label_species = [re.sub('_', ' ', label) for label in label_species] # the species-level label for each image
+        # Create one-hot encoding based on species lookup in the csv
+        ohe_dict = get_one_hot_labels(label_species, csv_path_mini)
+        
+        #print(ohe_dict)
+        image_labels = [torch.from_numpy(ohe_dict[species]).to(device) for species in label_species]
+        
+        #Define image transform process
+        transform = T.Compose(
+                [
+                    T.Lambda(lambda img: resize_image(img, height=800, max_width=1333)),  # Resize with fixed height
+                    #T.Resize(800, max_size=1333), # like GroundingDINO
+                    T.ToTensor(),
+                    T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+                ]
+            )
+    if "cub" in args.dataset:    
+        # Split dataset into train, val, and test sets
+        train_paths, temp_paths, train_labels, temp_labels = train_test_split(image_paths, image_labels, test_size=0.3, random_state=args.seed)
+        val_paths, test_paths, val_labels, test_labels = train_test_split(temp_paths, temp_labels, test_size=0.7, random_state=args.seed)
+        
+    elif ('others' in args.dataset):
+        train, test = initialize_other_dataset(dataset_name, datasets)
+        train.to_eval, test.to_eval = torch.tensor(train.to_eval, dtype=torch.bool),  torch.tensor(test.to_eval, dtype=torch.bool)
+        train.X, valX, train.Y, valY = train_test_split(train.X, train.Y, test_size=0.30, random_state=args.seed)
+    else:
+        train, val, test = initialize_dataset(dataset_name, datasets)
+        train.to_eval, val.to_eval, test.to_eval = torch.tensor(train.to_eval, dtype=torch.bool), torch.tensor(val.to_eval, dtype=torch.bool), torch.tensor(test.to_eval, dtype=torch.bool)
+        print(train.Y.shape)
 
-    # Split dataset into train, val, and test sets
-    train_paths, temp_paths, train_labels, temp_labels = train_test_split(image_paths, image_labels, test_size=0.3, random_state=args.seed)
-    val_paths, test_paths, val_labels, test_labels = train_test_split(temp_paths, temp_labels, test_size=0.7, random_state=args.seed)
-    
-    # Create datasets for each split: Change labels
-    train_dataset = CUB_Dataset(train_paths, train_labels, transform, to_eval = True)
-    val_dataset = CUB_Dataset(val_paths, val_labels, transform, to_eval = True)
-    test_dataset = CUB_Dataset(test_paths, test_labels, transform, to_eval = True)
+        #Create loaders
+    if "cub" in args.dataset:
+        # Create datasets for each split: Change labels
+        train_dataset = CUB_Dataset(train_paths, train_labels, transform, to_eval = True)
+        val_dataset = CUB_Dataset(val_paths, val_labels, transform, to_eval = True)
+        test_dataset = CUB_Dataset(test_paths, test_labels, transform, to_eval = True)
 
-    # convert them into tensors: shape = output_dim + 1
-    train_dataset.to_eval, val_dataset.to_eval, test_dataset.to_eval = torch.tensor(train_dataset.to_eval, dtype=torch.bool), torch.tensor(val_dataset.to_eval, dtype=torch.bool), torch.tensor(test_dataset.to_eval, dtype=torch.bool)
+        # convert them into tensors: shape = output_dim + 1
+        train_dataset.to_eval, val_dataset.to_eval, test_dataset.to_eval = torch.tensor(train_dataset.to_eval, dtype=torch.bool), torch.tensor(val_dataset.to_eval, dtype=torch.bool), torch.tensor(test_dataset.to_eval, dtype=torch.bool)
+    else:
+        train_dataset = [(x, y) for (x, y) in zip(train.X, train.Y)]
+        if ('others' not in args.dataset):
+            val_dataset = [(x, y) for (x, y) in zip(val.X, val.Y)]
+            #for (x, y) in zip(val.X, val.Y):
+            #    train_dataset.append((x,y))
+        else:
+            val_dataset = [(x, y) for (x, y) in zip(valX, valY)]
+
+        test_dataset = [(x, y) for (x, y) in zip(test.X, test.Y)]
 
     #different_from_0 = torch.tensor(np.array((test.Y.sum(0)!=0), dtype = bool), dtype=torch.bool)
 
@@ -276,11 +306,16 @@ def main():
         num_to_skip = 1
 
     # Prepare matrix
-    mat = np.load(mat_path_mini)
+    if "cub" in args.dataset:
+        mat = np.load(mat_path_mini)
+    else:
+        mat = train.A
 
     # Prepare circuit: TODO needs cleaning
     if not args.no_constraints:
-
+        print(mat.shape) #500x500 classes
+        #print(np.array(train_labels).shape)
+        
         if not os.path.isfile('constraints/' + dataset_name + '.sdd') or not os.path.isfile('constraints/' + dataset_name + '.vtree'):
             # Compute matrix of ancestors R
             # Given n classes, R is an (n x n) matrix where R_ij = 1 if class i is ancestor of class j
@@ -385,7 +420,7 @@ def main():
     # Create the model
     # Load train, val and test set
 
-    model = ConstrainedFFNNModel(input_dims[dataset_name], hidden_dim, 128, hyperparams, R)
+    model = ConstrainedFFNNModel(input_dims[data], hidden_dim, 128, hyperparams, R, args.dataset)
     model.to(device)
     print("Model on gpu", next(model.parameters()).is_cuda)
     optimizer = torch.optim.Adam(list(model.parameters()) + list(gate.parameters()), lr=args.lr, weight_decay=args.wd)
@@ -425,10 +460,19 @@ def main():
                 predicted_test = torch.cat((predicted_test, predicted), dim=0)
                 constr_test = torch.cat((constr_test, cpu_constrained_output), dim=0)
                 y_test = torch.cat((y_test, y), dim =0)
-
+        
+        if "cub" in args.dataset:
+            test_cut = test_dataset.to_eval
+        else:
+            test_cut = test.to_eval
+        '''print("test_cut, y_test.shape, y_test[:,test_cut].shape, constr_test.shape, constr_test.data[:,test_cut].shape")
+        print(test_cut, y_test.shape, y_test[:,test_cut].shape, constr_test.shape, constr_test.data[:,test_cut].shape)
+        print("predicted_test[:,test_cut].shape")
+        print(predicted_test[:,test_cut].shape)'''
+        
         test_val_e = perf_counter()
-        avg_score = average_precision_score(y_test[:,test_dataset.to_eval], constr_test.data[:,test_dataset.to_eval], average='micro')
-        jss = jaccard_score(y_test[:,test_dataset.to_eval], predicted_test[:,test_dataset.to_eval], average='micro')
+        avg_score = average_precision_score(y_test[:,test_cut], constr_test.data[:,test_cut], average='micro')
+        jss = jaccard_score(y_test[:,test_cut], predicted_test[:,test_cut], average='micro')
         print(f"Number of correct: {test_correct}")
         print(f"avg_score: {avg_score}")
         print(f"test micro AP {jss}\t{(test_val_e-test_val_t):.4f}")
@@ -457,9 +501,9 @@ def main():
             pred_y = (cmpe.get_mpe_inst(x.shape[0]) > 0).long()
 
             pred_y = pred_y.to('cpu')
-            print(pred_y)
+            #print(pred_y.shape)
             y = y.to('cpu')
-            print(y)
+            #print(y.shape)
 
             num_correct = (pred_y == y.byte()).all(dim=-1).sum()
 
@@ -478,6 +522,20 @@ def main():
         
         accuracy = test_correct / len(y_test)
         nll = nll.detach().to("cpu").numpy() / (i+1)
+        '''if y_test.shape == predicted_test.shape:
+            print("y_test.shape == predicted_test.shape")
+        else:
+            print("y_test and predicted_test shape mismatch")
+        print(y_test.shape, predicted_test.shape)
+        print(y_test.dtype, predicted_test.dtype)'''
+        if "cub" in args.dataset:
+            # Ensure correct shape (1D numpy array)
+            y_test = y_test.squeeze()
+            predicted_test = predicted_test.squeeze()
+            # Convert to numpy (currently torch.int64)
+            y_test = y_test.cpu().numpy()
+            predicted_test = predicted_test.cpu().numpy()
+
         jaccard = jaccard_score(y_test, predicted_test, average='micro')
         hamming = hamming_loss(y_test, predicted_test)
 
@@ -496,6 +554,12 @@ def main():
             f"{prefix}/nll": (nll, epoch, dt),
         }
 
+    if "cub" in args.dataset:
+        data_split_test = test_dataset
+        data_split_train = train_dataset
+    else:
+        data_split_test = test
+        data_split_train = train
 
     for epoch in range(num_epochs):
 
@@ -509,7 +573,7 @@ def main():
                     cmpe,
                     epoch=epoch,
                     data_loader=test_loader,
-                    data_split=test_dataset,
+                    data_split=data_split_test,
                     prefix="param_sdd/test",
                 ),
                 **evaluate_circuit(
@@ -518,7 +582,7 @@ def main():
                     cmpe,
                     epoch=epoch,
                     data_loader=valid_loader,
-                    data_split=train_dataset,
+                    data_split=data_split_train,
                     prefix="param_sdd/valid",
                 ),
             }

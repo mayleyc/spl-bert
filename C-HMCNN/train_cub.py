@@ -2,12 +2,12 @@ import os
 import datetime
 import json
 from time import perf_counter
+import copy
 
 import torch
 import torch.nn as nn
 
 from torch.utils.tensorboard import SummaryWriter
-
 
 
 from sklearn.metrics import (
@@ -643,6 +643,12 @@ def main():
         data_split_test = test
         data_split_train = train
 
+    #Initialize Variables for EarlyStopping
+    best_loss = float('inf')
+    best_model_weights = None
+    patience = 10
+    model_save_folder = "models"
+
     for epoch in range(num_epochs):
 
         if epoch % 5 == 0 and epoch != 0:
@@ -689,20 +695,11 @@ def main():
             optimizer.zero_grad()
 
             #MCLoss
-            if args.no_constraints:
-
                 # Use fully-factorized distribution via circuit
-                output = model(x.float(), sigmoid=False)
-                thetas = gate(output)
-                cmpe.set_params(thetas)
-                loss = cmpe.cross_entropy(labels, log_space=True).mean()
-
-            else:
-                #y = labels
-                output = model(x.float(), sigmoid=False)
-                thetas = gate(output)
-                cmpe.set_params(thetas)
-                loss = cmpe.cross_entropy(labels, log_space=True).mean()
+            output = model(x.float(), sigmoid=False)
+            thetas = gate(output)
+            cmpe.set_params(thetas)
+            loss = cmpe.cross_entropy(labels, log_space=True).mean()
 
             tot_loss += loss
             loss.backward()
@@ -710,6 +707,25 @@ def main():
 
         train_e = perf_counter()
         print(f"{epoch+1}/{num_epochs} train loss: {tot_loss/(i+1)}\t {(train_e-train_t):.4f}")
+
+        # Early stopping
+        if tot_loss/(i+1) < best_loss:
+            best_loss = tot_loss/(i+1)
+            best_model_weights = copy.deepcopy(model.state_dict())  # Deep copy here      
+            patience = 10  # Reset patience counter
+        else:
+            patience -= 1
+            if patience == 0:
+                # Output path
+                if args.exp_id:
+                    out_path_model = os.path.join(model_save_folder, args.exp_id)
+                else:
+                    date_string = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+                    out_path_model = os.path.join(model_save_folder,  '{}_{}_{}_{}_{}_{}'.format(args.dataset, model.__class__.__name__,date_string, args.batch_size, args.gates, args.lr))
+
+                torch.save(best_model_weights, out_path_model)
+
+                break
 
 if __name__ == "__main__":
     main()

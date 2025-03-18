@@ -1,0 +1,43 @@
+Done overparameterizing
+[('linear1', Linear(in_features=128, out_features=256, bias=True)), ('relu1', ReLU()), ('linear2', Linear(in_features=256, out_features=256, bias=True)), ('relu2', ReLU())]
+Starting with arguments:
+%s
+	dumped at %s {"dataset": "cub_mini", "seed": 0, "device": "0", "emb_size": 128, "batch_size": 128, "lr": 0.001, "wd": 1e-05, "n_epochs": 200, "output": "exp", "exp_id": null, "no_constraints": false, "gates": 2, "S": 4, "num_reps": 2} exp/cub_mini_20250318-204316_128_2_0.001/args.json
+Model on gpu True
+1/200 train loss: 7.8210248947143555	 2.8819
+2/200 train loss: 5.493318557739258	 2.0614
+3/200 train loss: 3.2145373821258545	 2.0601
+4/200 train loss: 3.2684996128082275	 2.0436
+5/200 train loss: 2.866917371749878	 2.0581
+EVAL@5
+Evaluation metrics on param_sdd/test 	 0.5536
+Num. correct: 0
+Accuracy: 0.0
+Hamming Loss: 0.06666666666666667
+Jaccard Score: 0.0
+nll: 2.6027636528015137
+Evaluation metrics on param_sdd/valid 	 0.2524
+Num. correct: 0
+Accuracy: 0.0
+Hamming Loss: 0.06666666666666667
+Jaccard Score: 0.0
+nll: 2.7088844776153564
+6/200 train loss: 2.746720790863037	 2.0460
+7/200 train loss: 2.5183238983154297	 2.0515
+8/200 train loss: 2.5063092708587646	 2.2496
+9/200 train loss: 2.486565113067627	 2.0656
+10/200 train loss: 2.3909401893615723	 2.0906
+EVAL@10
+Evaluation metrics on param_sdd/test 	 0.5529
+Num. correct: 0
+Accuracy: 0.0
+Hamming Loss: 0.06666666666666667
+Jaccard Score: 0.0
+nll: 2.3172597885131836
+Evaluation metrics on param_sdd/valid 	 0.2417
+Num. correct: 0
+Accuracy: 0.0
+Hamming Loss: 0.06666666666666667
+Jaccard Score: 0.0
+nll: 2.416363477706909
+11/200 train loss: 2.4142205715179443	 2.0239

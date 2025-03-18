@@ -25,9 +25,10 @@ sys.path.append(os.path.join(sys.path[0], "."))
 os.environ["DATA_FOLDER"] = "."
 from cutils.parser import *
 from cutils import datasets
-csv_path = "CUB/bird_info.csv"
+
+csv_path_full = "CUB/bird_info.csv"
 csv_path_mini = "CUB/bird_info_mini.csv"
-mat_path = "cub_matrix.npy"
+mat_path_full = "cub_matrix.npy"
 mat_path_mini = "cub_matrix_mini.npy"
 images_dir = "CUB/CUB_200_2011/images"
 
@@ -114,10 +115,15 @@ hidden_dims_others = {
     "cub": 1000, #should be a hyperparameter? check for best performance
 }
 
+hidden_dims_mini = {
+    "cub": 1000,
+}
+
 hidden_dims = {
     "FUN": hidden_dims_FUN,
     "GO": hidden_dims_GO,
     "others": hidden_dims_others,
+    "mini": hidden_dims_mini,
 }
 
 
@@ -375,6 +381,7 @@ def parse_args():
         "FUN" in args.dataset
         or "GO" in args.dataset
         or "others" in args.dataset
+        or "mini" in args.dataset
     )
 
     return args

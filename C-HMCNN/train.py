@@ -112,7 +112,13 @@ def main():
     
     from sklearn import preprocessing
 
-    
+    if ('others' in args.dataset):
+        train, test = initialize_other_dataset(dataset_name, datasets)
+        train.to_eval, test.to_eval = torch.tensor(train.to_eval, dtype=torch.bool),  torch.tensor(test.to_eval, dtype=torch.bool)
+        train.X, valX, train.Y, valY = train_test_split(train.X, train.Y, test_size=0.30, random_state=args.seed)
+    else:
+        train, val, test = initialize_dataset(dataset_name, datasets)
+        train.to_eval, val.to_eval, test.to_eval = torch.tensor(train.to_eval, dtype=torch.bool), torch.tensor(val.to_eval, dtype=torch.bool), torch.tensor(test.to_eval, dtype=torch.bool)
 
     different_from_0 = torch.tensor(np.array((test.Y.sum(0)!=0), dtype = bool), dtype=torch.bool)
 
@@ -161,8 +167,8 @@ def main():
 
     # Prepare circuit: TODO needs cleaning
     if not args.no_constraints:
-        print(train.A.shape) #500x500 classes
-        quit()
+        #print(train.A.shape) #500x500 classes
+        
         if not os.path.isfile('constraints/' + dataset_name + '.sdd') or not os.path.isfile('constraints/' + dataset_name + '.vtree'):
             # Compute matrix of ancestors R
             # Given n classes, R is an (n x n) matrix where R_ij = 1 if class i is ancestor of class j
@@ -236,7 +242,7 @@ def main():
         cmpe.overparameterize()
 
         # Gating function
-        gate = DenseGatingFunction(cmpe.beta, gate_layers=[462]).to(device)
+        gate = DenseGatingFunction(cmpe.beta, gate_layers=[128]).to(device)
         R = None
 
     # We do not evaluate the performance of the model on the 'roots' node (https://dtai.cs.kuleuven.be/clus/hmcdatasets/)

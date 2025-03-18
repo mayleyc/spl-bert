@@ -275,9 +275,16 @@ def main():
         #Try out with 5 classes in CUB
         # Get all class folder names
         all_classes = sorted(os.listdir(images_dir))  # Sorting ensures consistency
-
+        
+        if "mini" in args.dataset:
         # Select all classes or only the first 5 classes (mini csv, mat and image set)
-        selected_classes = all_classes #[:5]
+            selected_classes = all_classes[:5]
+            csv_path = csv_path_mini
+            mat_path = mat_path_mini
+        else:
+            selected_classes = all_classes
+            csv_path = csv_path_full
+            mat_path = mat_path_full
 
         # Get image paths only for selected classes
         image_paths = []
@@ -463,12 +470,6 @@ def main():
         gate = DenseGatingFunction(cmpe.beta, gate_layers=[128]).to(device) #changed 462 to 128. why 462?
         R = None
 
-    # We do not evaluate the performance of the model on the 'roots' node (https://dtai.cs.kuleuven.be/clus/hmcdatasets/)
-    if 'GO' in dataset_name: 
-        num_to_skip = 4
-    else:
-        num_to_skip = 1 
-
     # Output path
     if args.exp_id:
         out_path = os.path.join(args.output, args.exp_id)
@@ -561,7 +562,7 @@ def main():
 
         for i, (x,y) in enumerate(data_loader):
 
-            model.eval()
+            model.eval() 
             gate.eval()
                     
             x = x.to(device)
@@ -646,6 +647,7 @@ def main():
     #Initialize Variables for EarlyStopping
     best_loss = float('inf')
     best_model_weights = None
+    best_model_path = None
     patience = 10
     model_save_folder = "models"
 
@@ -706,25 +708,41 @@ def main():
             optimizer.step()
 
         train_e = perf_counter()
-        print(f"{epoch+1}/{num_epochs} train loss: {tot_loss/(i+1)}\t {(train_e-train_t):.4f}")
+        avg_loss = tot_loss/(i+1)
+        print(f"{epoch+1}/{num_epochs} train loss: {avg_loss}\t {(train_e-train_t):.4f}")
 
         # Early stopping
-        if tot_loss/(i+1) < best_loss:
-            best_loss = tot_loss/(i+1)
-            best_model_weights = copy.deepcopy(model.state_dict())  # Deep copy here      
+        if avg_loss < best_loss:
+            best_loss = avg_loss
+            best_model_weights = copy.deepcopy(model.state_dict()) #Retrieve best model weights 
             patience = 10  # Reset patience counter
+            if args.exp_id:
+                out_path_model = os.path.join(model_save_folder, args.exp_id)
+            else:
+                date_string = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+                out_path_model = os.path.join(model_save_folder,  
+                                              '{}_{}_{}_{}_{}_{}.pth'.format(
+                                                args.dataset, model.__class__.__name__, date_string, args.batch_size, args.gates, args.lr
+                                                ))
+            
+            # Remove the previous best model (for each bash run) if exists
+            if best_model_path and os.path.exists(best_model_path):
+                os.remove(best_model_path)
+            # Save best model into .pth file and update best model path            
+            os.makedirs(os.path.dirname(out_path_model), exist_ok=True)
+            torch.save({
+                'model_state_dict': best_model_weights,
+                'best_loss': best_loss,
+                'batch_size': args.batch_size,
+                'gates': args.gates,
+                'learning_rate': args.lr
+                }, out_path_model)
+            best_model_path = out_path_model
+                
+            
         else:
             patience -= 1
             if patience == 0:
-                # Output path
-                if args.exp_id:
-                    out_path_model = os.path.join(model_save_folder, args.exp_id)
-                else:
-                    date_string = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-                    out_path_model = os.path.join(model_save_folder,  '{}_{}_{}_{}_{}_{}'.format(args.dataset, model.__class__.__name__,date_string, args.batch_size, args.gates, args.lr))
-
-                torch.save(best_model_weights, out_path_model)
-
                 break
 
 if __name__ == "__main__":

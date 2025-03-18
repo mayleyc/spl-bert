@@ -1,5 +1,6 @@
 #!/bin/bash
 device=0
+mkdir -p overparam_logs
 for num_reps in 2 4 8
 do
     for gates in 2 4 

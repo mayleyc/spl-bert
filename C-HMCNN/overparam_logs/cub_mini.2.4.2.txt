@@ -1,0 +1,82 @@
+Done overparameterizing
+[('linear1', Linear(in_features=128, out_features=256, bias=True)), ('relu1', ReLU()), ('linear2', Linear(in_features=256, out_features=256, bias=True)), ('relu2', ReLU()), ('linear3', Linear(in_features=256, out_features=256, bias=True)), ('relu3', ReLU()), ('linear4', Linear(in_features=256, out_features=256, bias=True)), ('relu4', ReLU())]
+Starting with arguments:
+%s
+	dumped at %s {"dataset": "cub_mini", "seed": 0, "device": "0", "emb_size": 128, "batch_size": 128, "lr": 0.001, "wd": 1e-05, "n_epochs": 200, "output": "exp", "exp_id": null, "no_constraints": false, "gates": 4, "S": 2, "num_reps": 2} exp/cub_mini_20250318-200449_128_4_0.001/args.json
+Model on gpu True
+1/200 train loss: 7.9082536697387695	 3.2364
+2/200 train loss: 5.063492774963379	 2.1405
+3/200 train loss: 2.8739891052246094	 2.1893
+4/200 train loss: 2.5860655307769775	 2.1426
+5/200 train loss: 2.6165428161621094	 2.1841
+EVAL@5
+Evaluation metrics on param_sdd/test 	 0.6993
+Num. correct: 0
+Accuracy: 0.0
+Hamming Loss: 0.06666666666666667
+Jaccard Score: 0.0
+nll: 2.519620418548584
+Evaluation metrics on param_sdd/valid 	 0.2587
+Num. correct: 0
+Accuracy: 0.0
+Hamming Loss: 0.06666666666666667
+Jaccard Score: 0.0
+nll: 2.4847211837768555
+6/200 train loss: 2.4842171669006348	 2.2529
+7/200 train loss: 2.3997974395751953	 2.3287
+8/200 train loss: 2.359457492828369	 2.2330
+9/200 train loss: 2.313753604888916	 2.1878
+10/200 train loss: 2.327058792114258	 2.3523
+EVAL@10
+Evaluation metrics on param_sdd/test 	 0.6400
+Num. correct: 0
+Accuracy: 0.0
+Hamming Loss: 0.06666666666666667
+Jaccard Score: 0.0
+nll: 2.315953493118286
+Evaluation metrics on param_sdd/valid 	 0.2402
+Num. correct: 0
+Accuracy: 0.0
+Hamming Loss: 0.06666666666666667
+Jaccard Score: 0.0
+nll: 2.2735092639923096
+11/200 train loss: 2.3192050457000732	 2.2166
+12/200 train loss: 2.2965240478515625	 2.3650
+13/200 train loss: 2.353023052215576	 2.2487
+14/200 train loss: 2.3275208473205566	 2.1492
+15/200 train loss: 2.338191509246826	 2.2127
+EVAL@15
+Evaluation metrics on param_sdd/test 	 0.6679
+Num. correct: 0
+Accuracy: 0.0
+Hamming Loss: 0.06666666666666667
+Jaccard Score: 0.0
+nll: 2.29237961769104
+Evaluation metrics on param_sdd/valid 	 0.2648
+Num. correct: 0
+Accuracy: 0.0
+Hamming Loss: 0.06666666666666667
+Jaccard Score: 0.0
+nll: 2.2824995517730713
+16/200 train loss: 2.3182878494262695	 2.2996
+17/200 train loss: 2.310067892074585	 2.3425
+18/200 train loss: 2.303318977355957	 2.2193
+19/200 train loss: 2.3166086673736572	 2.1501
+20/200 train loss: 2.2871336936950684	 2.1267
+EVAL@20
+Evaluation metrics on param_sdd/test 	 0.6023
+Num. correct: 0
+Accuracy: 0.0
+Hamming Loss: 0.06666666666666667
+Jaccard Score: 0.0
+nll: 2.2805721759796143
+Evaluation metrics on param_sdd/valid 	 0.2648
+Num. correct: 0
+Accuracy: 0.0
+Hamming Loss: 0.06666666666666667
+Jaccard Score: 0.0
+nll: 2.303205728530884
+21/200 train loss: 2.292351722717285	 2.1725
+22/200 train loss: 2.268881320953369	 2.3011
+23/200 train loss: 2.302297592163086	 2.2220
+24/200 train loss: 2.300142526626587	 2.1724

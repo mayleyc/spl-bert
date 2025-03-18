@@ -1,0 +1,404 @@
+Done overparameterizing
+[('linear1', Linear(in_features=128, out_features=256, bias=True)), ('relu1', ReLU()), ('linear2', Linear(in_features=256, out_features=256, bias=True)), ('relu2', ReLU())]
+Starting with arguments:
+%s
+	dumped at %s {"dataset": "cub_mini", "seed": 0, "device": "0", "emb_size": 128, "batch_size": 128, "lr": 0.001, "wd": 1e-05, "n_epochs": 200, "output": "exp", "exp_id": null, "no_constraints": false, "gates": 2, "S": 2, "num_reps": 2} exp/cub_mini_20250318-203737_128_2_0.001/args.json
+Model on gpu True
+1/200 train loss: 7.682451248168945	 3.1599
+2/200 train loss: 5.124114036560059	 2.1565
+3/200 train loss: 3.181417465209961	 2.2776
+4/200 train loss: 3.443737506866455	 2.2259
+5/200 train loss: 3.148653030395508	 2.1908
+EVAL@5
+Evaluation metrics on param_sdd/test 	 0.5650
+Num. correct: 11
+Accuracy: 0.18333333730697632
+Hamming Loss: 0.10888888888888888
+Jaccard Score: 0.10091743119266056
+nll: 2.7165355682373047
+Evaluation metrics on param_sdd/valid 	 0.2829
+Num. correct: 5
+Accuracy: 0.20000000298023224
+Hamming Loss: 0.10666666666666667
+Jaccard Score: 0.1111111111111111
+nll: 2.796863317489624
+6/200 train loss: 2.6151368618011475	 2.1445
+7/200 train loss: 2.5179755687713623	 2.1222
+8/200 train loss: 2.5270118713378906	 2.1122
+9/200 train loss: 2.4552135467529297	 2.1734
+10/200 train loss: 2.4834494590759277	 2.2425
+EVAL@10
+Evaluation metrics on param_sdd/test 	 0.6144
+Num. correct: 2
+Accuracy: 0.03333333507180214
+Hamming Loss: 0.12777777777777777
+Jaccard Score: 0.1417910447761194
+nll: 2.3952276706695557
+Evaluation metrics on param_sdd/valid 	 0.2621
+Num. correct: 2
+Accuracy: 0.07999999821186066
+Hamming Loss: 0.13333333333333333
+Jaccard Score: 0.12280701754385964
+nll: 2.4488112926483154
+11/200 train loss: 2.3768386840820312	 2.3469
+12/200 train loss: 2.3695425987243652	 2.1142
+13/200 train loss: 2.3821282386779785	 2.2503
+14/200 train loss: 2.3906702995300293	 2.1282
+15/200 train loss: 2.422501564025879	 2.3358
+EVAL@15
+Evaluation metrics on param_sdd/test 	 0.5822
+Num. correct: 0
+Accuracy: 0.0
+Hamming Loss: 0.06666666666666667
+Jaccard Score: 0.0
+nll: 2.3913605213165283
+Evaluation metrics on param_sdd/valid 	 0.2954
+Num. correct: 0
+Accuracy: 0.0
+Hamming Loss: 0.06666666666666667
+Jaccard Score: 0.0
+nll: 2.403235673904419
+16/200 train loss: 2.372645378112793	 2.2766
+17/200 train loss: 2.3898637294769287	 2.2850
+18/200 train loss: 2.363799571990967	 2.1584
+19/200 train loss: 2.361635684967041	 2.2898
+20/200 train loss: 2.365691900253296	 2.1067
+EVAL@20
+Evaluation metrics on param_sdd/test 	 0.6143
+Num. correct: 0
+Accuracy: 0.0
+Hamming Loss: 0.06666666666666667
+Jaccard Score: 0.0
+nll: 2.3696858882904053
+Evaluation metrics on param_sdd/valid 	 0.2319
+Num. correct: 0
+Accuracy: 0.0
+Hamming Loss: 0.06666666666666667
+Jaccard Score: 0.0
+nll: 2.3935961723327637
+21/200 train loss: 2.3432884216308594	 2.1566
+22/200 train loss: 2.314967155456543	 2.3287
+23/200 train loss: 2.369260787963867	 2.0770
+24/200 train loss: 2.331730842590332	 2.2622
+25/200 train loss: 2.3299646377563477	 2.1603
+EVAL@25
+Evaluation metrics on param_sdd/test 	 0.6244
+Num. correct: 0
+Accuracy: 0.0
+Hamming Loss: 0.07
+Jaccard Score: 0.0
+nll: 2.3606693744659424
+Evaluation metrics on param_sdd/valid 	 0.2831
+Num. correct: 0
+Accuracy: 0.0
+Hamming Loss: 0.072
+Jaccard Score: 0.0
+nll: 2.4044907093048096
+26/200 train loss: 2.314134120941162	 2.3243
+27/200 train loss: 2.290266513824463	 2.1343
+28/200 train loss: 2.289625644683838	 2.1542
+29/200 train loss: 2.250312328338623	 2.1619
+30/200 train loss: 2.2433266639709473	 2.2519
+EVAL@30
+Evaluation metrics on param_sdd/test 	 0.6580
+Num. correct: 10
+Accuracy: 0.1666666716337204
+Hamming Loss: 0.08666666666666667
+Jaccard Score: 0.11363636363636363
+nll: 2.331991195678711
+Evaluation metrics on param_sdd/valid 	 0.2462
+Num. correct: 5
+Accuracy: 0.20000000298023224
+Hamming Loss: 0.09333333333333334
+Jaccard Score: 0.125
+nll: 2.3937323093414307
+31/200 train loss: 2.2077951431274414	 2.2893
+32/200 train loss: 2.1222214698791504	 2.1611
+33/200 train loss: 2.1205432415008545	 2.3108
+34/200 train loss: 2.0573177337646484	 2.0799
+35/200 train loss: 2.056192398071289	 2.2119
+EVAL@35
+Evaluation metrics on param_sdd/test 	 0.6808
+Num. correct: 23
+Accuracy: 0.38333332538604736
+Hamming Loss: 0.07777777777777778
+Jaccard Score: 0.2553191489361702
+nll: 2.1121041774749756
+Evaluation metrics on param_sdd/valid 	 0.2746
+Num. correct: 7
+Accuracy: 0.2800000011920929
+Hamming Loss: 0.09333333333333334
+Jaccard Score: 0.16666666666666666
+nll: 2.5666472911834717
+36/200 train loss: 1.970334529876709	 2.2317
+37/200 train loss: 2.0249814987182617	 2.0962
+38/200 train loss: 1.9982290267944336	 2.2449
+39/200 train loss: 1.9596376419067383	 2.2796
+40/200 train loss: 1.9131211042404175	 2.2206
+EVAL@40
+Evaluation metrics on param_sdd/test 	 0.6102
+Num. correct: 25
+Accuracy: 0.4166666567325592
+Hamming Loss: 0.07555555555555556
+Jaccard Score: 0.26881720430107525
+nll: 1.923767328262329
+Evaluation metrics on param_sdd/valid 	 0.2433
+Num. correct: 8
+Accuracy: 0.3199999928474426
+Hamming Loss: 0.088
+Jaccard Score: 0.1951219512195122
+nll: 2.4780097007751465
+41/200 train loss: 1.8805956840515137	 2.1265
+42/200 train loss: 1.8321987390518188	 2.2315
+43/200 train loss: 1.7790663242340088	 2.1600
+44/200 train loss: 1.675828218460083	 2.3184
+45/200 train loss: 1.7836734056472778	 2.1073
+EVAL@45
+Evaluation metrics on param_sdd/test 	 0.6002
+Num. correct: 24
+Accuracy: 0.4000000059604645
+Hamming Loss: 0.07888888888888888
+Jaccard Score: 0.25263157894736843
+nll: 1.8804641962051392
+Evaluation metrics on param_sdd/valid 	 0.2852
+Num. correct: 9
+Accuracy: 0.36000001430511475
+Hamming Loss: 0.08266666666666667
+Jaccard Score: 0.24390243902439024
+nll: 2.72261905670166
+46/200 train loss: 1.6779053211212158	 2.2796
+47/200 train loss: 1.6412649154663086	 2.1706
+48/200 train loss: 1.5814263820648193	 2.2081
+49/200 train loss: 1.537672519683838	 2.1278
+50/200 train loss: 1.4894613027572632	 2.1918
+EVAL@50
+Evaluation metrics on param_sdd/test 	 0.6927
+Num. correct: 27
+Accuracy: 0.44999998807907104
+Hamming Loss: 0.07222222222222222
+Jaccard Score: 0.29347826086956524
+nll: 1.8989953994750977
+Evaluation metrics on param_sdd/valid 	 0.2585
+Num. correct: 9
+Accuracy: 0.36000001430511475
+Hamming Loss: 0.08266666666666667
+Jaccard Score: 0.24390243902439024
+nll: 2.8538224697113037
+51/200 train loss: 1.446415662765503	 2.1176
+52/200 train loss: 1.4678699970245361	 2.1145
+53/200 train loss: 1.4206186532974243	 2.1967
+54/200 train loss: 1.354096531867981	 2.1175
+55/200 train loss: 1.301649808883667	 2.1712
+EVAL@55
+Evaluation metrics on param_sdd/test 	 0.5880
+Num. correct: 25
+Accuracy: 0.4166666567325592
+Hamming Loss: 0.07555555555555556
+Jaccard Score: 0.26881720430107525
+nll: 1.9160038232803345
+Evaluation metrics on param_sdd/valid 	 0.2544
+Num. correct: 10
+Accuracy: 0.4000000059604645
+Hamming Loss: 0.08
+Jaccard Score: 0.25
+nll: 3.4121153354644775
+56/200 train loss: 1.2816555500030518	 2.3147
+57/200 train loss: 1.2716805934906006	 2.1076
+58/200 train loss: 1.2315943241119385	 2.2251
+59/200 train loss: 1.2714234590530396	 2.2013
+60/200 train loss: 1.2106536626815796	 2.1365
+EVAL@60
+Evaluation metrics on param_sdd/test 	 0.6050
+Num. correct: 25
+Accuracy: 0.4166666567325592
+Hamming Loss: 0.07555555555555556
+Jaccard Score: 0.26881720430107525
+nll: 2.0255796909332275
+Evaluation metrics on param_sdd/valid 	 0.2590
+Num. correct: 10
+Accuracy: 0.4000000059604645
+Hamming Loss: 0.07733333333333334
+Jaccard Score: 0.2564102564102564
+nll: 3.751190662384033
+61/200 train loss: 1.1650497913360596	 2.1348
+62/200 train loss: 1.2019591331481934	 2.1227
+63/200 train loss: 1.1515603065490723	 2.0469
+64/200 train loss: 1.0869011878967285	 2.0546
+65/200 train loss: 1.1169896125793457	 2.0262
+EVAL@65
+Evaluation metrics on param_sdd/test 	 0.5493
+Num. correct: 25
+Accuracy: 0.4166666567325592
+Hamming Loss: 0.07666666666666666
+Jaccard Score: 0.26595744680851063
+nll: 2.032956123352051
+Evaluation metrics on param_sdd/valid 	 0.2308
+Num. correct: 9
+Accuracy: 0.36000001430511475
+Hamming Loss: 0.08266666666666667
+Jaccard Score: 0.225
+nll: 4.179327487945557
+66/200 train loss: 1.0301036834716797	 2.0032
+67/200 train loss: 1.0563030242919922	 2.0169
+68/200 train loss: 1.0002446174621582	 2.2665
+69/200 train loss: 1.1770706176757812	 2.2264
+70/200 train loss: 0.9790689945220947	 2.0359
+EVAL@70
+Evaluation metrics on param_sdd/test 	 0.5689
+Num. correct: 30
+Accuracy: 0.5
+Hamming Loss: 0.06666666666666667
+Jaccard Score: 0.3333333333333333
+nll: 2.173269271850586
+Evaluation metrics on param_sdd/valid 	 0.2288
+Num. correct: 9
+Accuracy: 0.36000001430511475
+Hamming Loss: 0.08533333333333333
+Jaccard Score: 0.21951219512195122
+nll: 4.126254081726074
+71/200 train loss: 0.9911807775497437	 2.0294
+72/200 train loss: 1.0461809635162354	 1.9931
+73/200 train loss: 0.9161559343338013	 2.0487
+74/200 train loss: 1.0785815715789795	 2.0195
+75/200 train loss: 0.9414393901824951	 2.0118
+EVAL@75
+Evaluation metrics on param_sdd/test 	 0.5447
+Num. correct: 25
+Accuracy: 0.4166666567325592
+Hamming Loss: 0.07333333333333333
+Jaccard Score: 0.2903225806451613
+nll: 2.2310454845428467
+Evaluation metrics on param_sdd/valid 	 0.2311
+Num. correct: 9
+Accuracy: 0.36000001430511475
+Hamming Loss: 0.08533333333333333
+Jaccard Score: 0.21951219512195122
+nll: 4.1091156005859375
+76/200 train loss: 0.8506361842155457	 2.0582
+77/200 train loss: 0.9210612773895264	 2.0220
+78/200 train loss: 0.9102739095687866	 2.0723
+79/200 train loss: 0.9363284707069397	 2.0123
+80/200 train loss: 0.8096725940704346	 2.0005
+EVAL@80
+Evaluation metrics on param_sdd/test 	 0.5450
+Num. correct: 23
+Accuracy: 0.38333332538604736
+Hamming Loss: 0.08
+Jaccard Score: 0.24210526315789474
+nll: 2.4521639347076416
+Evaluation metrics on param_sdd/valid 	 0.2281
+Num. correct: 10
+Accuracy: 0.4000000059604645
+Hamming Loss: 0.07733333333333334
+Jaccard Score: 0.2564102564102564
+nll: 5.101768493652344
+81/200 train loss: 0.8672510981559753	 2.0226
+82/200 train loss: 0.7572003602981567	 2.0332
+83/200 train loss: 0.880834698677063	 2.0195
+84/200 train loss: 0.8120535612106323	 2.0555
+85/200 train loss: 0.7639333009719849	 2.0438
+EVAL@85
+Evaluation metrics on param_sdd/test 	 0.5462
+Num. correct: 28
+Accuracy: 0.46666666865348816
+Hamming Loss: 0.06888888888888889
+Jaccard Score: 0.3111111111111111
+nll: 2.638762950897217
+Evaluation metrics on param_sdd/valid 	 0.2385
+Num. correct: 10
+Accuracy: 0.4000000059604645
+Hamming Loss: 0.08
+Jaccard Score: 0.25
+nll: 5.3318915367126465
+86/200 train loss: 0.8367229700088501	 1.9924
+87/200 train loss: 0.7039027214050293	 2.0291
+88/200 train loss: 0.7986425757408142	 2.0218
+89/200 train loss: 0.8274544477462769	 1.9973
+90/200 train loss: 0.7650671005249023	 2.0263
+EVAL@90
+Evaluation metrics on param_sdd/test 	 0.5859
+Num. correct: 24
+Accuracy: 0.4000000059604645
+Hamming Loss: 0.08
+Jaccard Score: 0.25
+nll: 2.438962459564209
+Evaluation metrics on param_sdd/valid 	 0.2281
+Num. correct: 10
+Accuracy: 0.4000000059604645
+Hamming Loss: 0.08
+Jaccard Score: 0.25
+nll: 6.443675994873047
+91/200 train loss: 0.7857203483581543	 1.9972
+92/200 train loss: 0.6457860469818115	 2.0334
+93/200 train loss: 0.7368615865707397	 1.9940
+94/200 train loss: 0.6252322196960449	 2.0290
+95/200 train loss: 0.6367849111557007	 2.1088
+EVAL@95
+Evaluation metrics on param_sdd/test 	 0.5430
+Num. correct: 25
+Accuracy: 0.4166666567325592
+Hamming Loss: 0.07777777777777778
+Jaccard Score: 0.2631578947368421
+nll: 2.82948899269104
+Evaluation metrics on param_sdd/valid 	 0.2483
+Num. correct: 10
+Accuracy: 0.4000000059604645
+Hamming Loss: 0.08
+Jaccard Score: 0.25
+nll: 6.55039644241333
+96/200 train loss: 0.6323734521865845	 2.0258
+97/200 train loss: 0.5947822332382202	 2.0064
+98/200 train loss: 0.5527767539024353	 2.0095
+99/200 train loss: 0.6048324108123779	 1.9856
+100/200 train loss: 0.5772402286529541	 2.0502
+EVAL@100
+Evaluation metrics on param_sdd/test 	 0.5456
+Num. correct: 28
+Accuracy: 0.46666666865348816
+Hamming Loss: 0.07
+Jaccard Score: 0.3076923076923077
+nll: 3.261326313018799
+Evaluation metrics on param_sdd/valid 	 0.2283
+Num. correct: 9
+Accuracy: 0.36000001430511475
+Hamming Loss: 0.08533333333333333
+Jaccard Score: 0.21951219512195122
+nll: 7.603283405303955
+101/200 train loss: 0.5828664302825928	 2.0367
+102/200 train loss: 0.4541347622871399	 2.0347
+103/200 train loss: 0.4780464768409729	 2.0244
+104/200 train loss: 0.5352967977523804	 2.0288
+105/200 train loss: 0.4862976670265198	 2.2403
+EVAL@105
+Evaluation metrics on param_sdd/test 	 0.5496
+Num. correct: 29
+Accuracy: 0.4833333194255829
+Hamming Loss: 0.06888888888888889
+Jaccard Score: 0.31868131868131866
+nll: 3.5171799659729004
+Evaluation metrics on param_sdd/valid 	 0.2346
+Num. correct: 10
+Accuracy: 0.4000000059604645
+Hamming Loss: 0.08
+Jaccard Score: 0.25
+nll: 8.274646759033203
+106/200 train loss: 0.60930335521698	 2.0060
+107/200 train loss: 0.6108851432800293	 2.0210
+108/200 train loss: 0.5168869495391846	 2.0424
+109/200 train loss: 0.5020895004272461	 2.0521
+110/200 train loss: 0.5201603174209595	 2.0576
+EVAL@110
+Evaluation metrics on param_sdd/test 	 0.5439
+Num. correct: 25
+Accuracy: 0.4166666567325592
+Hamming Loss: 0.07777777777777778
+Jaccard Score: 0.2631578947368421
+nll: 4.294110298156738
+Evaluation metrics on param_sdd/valid 	 0.2337
+Num. correct: 11
+Accuracy: 0.4399999976158142
+Hamming Loss: 0.07466666666666667
+Jaccard Score: 0.28205128205128205
+nll: 7.989323616027832
+111/200 train loss: 0.5022774934768677	 2.0439
+112/200 train loss: 0.5304746627807617	 2.0153

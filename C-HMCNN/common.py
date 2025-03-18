@@ -44,7 +44,7 @@ input_dims = {
     "gasch2": 52,
     "seq": 529,
     "spo": 86,
-    "cub": 1333 #3199200,
+    "cub": 800400,
 }
 
 output_dims_FUN = {

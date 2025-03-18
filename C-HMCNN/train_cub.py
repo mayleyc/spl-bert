@@ -8,6 +8,8 @@ import torch.nn as nn
 
 from torch.utils.tensorboard import SummaryWriter
 
+
+
 from sklearn.metrics import (
     precision_score, 
     average_precision_score, 
@@ -78,8 +80,8 @@ class CUB_Dataset(Dataset):
         _, H, W = image.shape
 
         # Compute padding
-        pad_w = max(1333 - W, 0)  # Only pads if W < 1333
-        pad_h = max(800 - H, 0)    # Only pads if H < 800
+        pad_w = max(667 - W, 0)  # Only pads if W < 1333
+        pad_h = max(400 - H, 0)    # Only pads if H < 800
 
         # Compute symmetric padding
         pad_left = pad_w // 2
@@ -181,6 +183,55 @@ class ConstrainedFFNNModel(nn.Module):
         else:
             constrained_out = get_constr_out(x, self.R)
         return constrained_out
+    
+class LeNet5(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim, hyperparams, R, dataset):
+            super().__init__()
+            self.nb_layers = hyperparams['num_layers']
+            self.R = R
+            self.dataset = dataset
+            if "cub" in self.dataset:
+                self.layer1 = nn.Sequential(
+                    nn.Conv2d(3, 6, kernel_size=5, stride=1, padding=0),
+                    nn.BatchNorm2d(6),
+                    nn.ReLU(),
+                    nn.MaxPool2d(kernel_size = 2, stride = 2))
+                self.layer2 = nn.Sequential(
+                    nn.Conv2d(6, 16, kernel_size=5, stride=1, padding=0),
+                    nn.BatchNorm2d(16),
+                    nn.ReLU(),
+                    nn.MaxPool2d(kernel_size = 2, stride = 2))
+            if "cub" in self.dataset:
+                # Dynamically compute the feature map size after layer2
+                sample = torch.rand(1, 3, 400, 667) #dummy sample to calculate size
+                out = self.layer2(self.layer1(sample))
+                flattened_dim = out.view(1, -1).shape[1]
+
+                self.fc = nn.Linear(flattened_dim, hidden_dim)
+            else:
+                self.fc = nn.Linear(input_dim, hidden_dim)
+            self.relu = nn.ReLU()
+            self.fc1 = nn.Linear(hidden_dim, hidden_dim)
+            self.relu1 = nn.ReLU()
+            self.fc2 = nn.Linear(hidden_dim, output_dim)
+            
+    def forward(self, x, sigmoid=False, log_sigmoid=False):
+            if "cub" in self.dataset:
+                x = self.layer1(x)
+                x = self.layer2(x)
+                x = x.reshape(x.size(0), -1)
+            x = self.fc(x)
+            x = self.relu(x)
+            x = self.fc1(x)
+            x = self.relu1(x)
+            x = self.fc2(x)
+            if self.R is None:
+                return x
+            if self.training:
+                constrained_out = x
+            else:
+                constrained_out = get_constr_out(x, self.R)
+            return constrained_out
 
 def main():
 
@@ -197,6 +248,7 @@ def main():
     data = dataset_name.split('_')[0]
     ontology = dataset_name.split('_')[1]
     hidden_dim = hidden_dims[ontology][data]
+    output_dim = 128 #not the number of classes
 
     num_epochs = args.n_epochs
 
@@ -224,8 +276,8 @@ def main():
         # Get all class folder names
         all_classes = sorted(os.listdir(images_dir))  # Sorting ensures consistency
 
-        # Select only the first 5 classes
-        selected_classes = all_classes[:5]
+        # Select all classes or only the first 5 classes (mini csv, mat and image set)
+        selected_classes = all_classes #[:5]
 
         # Get image paths only for selected classes
         image_paths = []
@@ -237,15 +289,34 @@ def main():
         label_species = [label.split('.')[-1] for label in labels_unprocessed]
         label_species = [re.sub('_', ' ', label) for label in label_species] # the species-level label for each image
         # Create one-hot encoding based on species lookup in the csv
-        ohe_dict = get_one_hot_labels(label_species, csv_path_mini)
+        ohe_dict = get_one_hot_labels(label_species, csv_path)
+
+        
+        '''
+        # Create labels for trials
+        ohe_dict_50 = {}
+        for index, i in enumerate(ohe_dict.keys()):
+            if index < len(ohe_dict)/2:
+                ohe_dict_50[i] = np.zeros(ohe_dict[i].shape)
+            else:
+                ohe_dict_50[i] = ohe_dict[i]
+        
+        ohe_dict_0 = {}
+        for i in ohe_dict.keys():
+            ohe_dict_0[i] = np.zeros(ohe_dict[i].shape)
+        ohe_dict_1 = {}
+        for i in ohe_dict.keys():
+            ohe_dict_1[i] = np.ones(ohe_dict[i].shape)
+        '''
         
         #print(ohe_dict)
+        #image_labels = [torch.from_numpy(ohe_dict[species]).to(device) for species in label_species]
         image_labels = [torch.from_numpy(ohe_dict[species]).to(device) for species in label_species]
         
         #Define image transform process
         transform = T.Compose(
                 [
-                    T.Lambda(lambda img: resize_image(img, height=800, max_width=1333)),  # Resize with fixed height
+                    T.Lambda(lambda img: resize_image(img, height=400, max_width=667)),  # Resize with fixed height
                     #T.Resize(800, max_size=1333), # like GroundingDINO
                     T.ToTensor(),
                     T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
@@ -263,7 +334,7 @@ def main():
     else:
         train, val, test = initialize_dataset(dataset_name, datasets)
         train.to_eval, val.to_eval, test.to_eval = torch.tensor(train.to_eval, dtype=torch.bool), torch.tensor(val.to_eval, dtype=torch.bool), torch.tensor(test.to_eval, dtype=torch.bool)
-        print(train.Y.shape)
+        #print(train.Y.shape)
 
         #Create loaders
     if "cub" in args.dataset:
@@ -307,13 +378,13 @@ def main():
 
     # Prepare matrix
     if "cub" in args.dataset:
-        mat = np.load(mat_path_mini)
+        mat = np.load(mat_path)
     else:
         mat = train.A
 
     # Prepare circuit: TODO needs cleaning
     if not args.no_constraints:
-        print(mat.shape) #500x500 classes
+        #print(mat.shape) #500x500 classes
         #print(np.array(train_labels).shape)
         
         if not os.path.isfile('constraints/' + dataset_name + '.sdd') or not os.path.isfile('constraints/' + dataset_name + '.vtree'):
@@ -389,7 +460,7 @@ def main():
         cmpe.overparameterize()
 
         # Gating function
-        gate = DenseGatingFunction(cmpe.beta, gate_layers=[462]).to(device)
+        gate = DenseGatingFunction(cmpe.beta, gate_layers=[128]).to(device) #changed 462 to 128. why 462?
         R = None
 
     # We do not evaluate the performance of the model on the 'roots' node (https://dtai.cs.kuleuven.be/clus/hmcdatasets/)
@@ -420,12 +491,14 @@ def main():
     # Create the model
     # Load train, val and test set
 
-    model = ConstrainedFFNNModel(input_dims[data], hidden_dim, 128, hyperparams, R, args.dataset)
+    model = ConstrainedFFNNModel(input_dims[data], hidden_dim, output_dim, hyperparams, R, args.dataset) # 1% at 45 ep, learns faster?/better? but accuracy still low, 13%
+    #model = LeNet5(input_dims[data], hidden_dim, output_dim, hyperparams, R, args.dataset) #1% accuracy at 80 epochs
+
     model.to(device)
     print("Model on gpu", next(model.parameters()).is_cuda)
     optimizer = torch.optim.Adam(list(model.parameters()) + list(gate.parameters()), lr=args.lr, weight_decay=args.wd)
     criterion = nn.BCELoss(reduction="none")
-
+    '''
     def evaluate(model):
         test_val_t = perf_counter()
         for i, (x,y) in enumerate(test_loader):
@@ -437,13 +510,15 @@ def main():
 
             constrained_output = model(x.float(), sigmoid=True)
             predicted = constrained_output.data > 0.5
+            #trial to see scores behaving correctly
 
             # Total number of labels
-            total = y.size(0) * y.size(1)
+            #total = y.size(0) * y.size(1)
 
             # Total correct predictions
-            correct = (predicted == y.byte()).sum()
+            #correct = (predicted == y.byte()).sum()
             num_correct = (predicted == y.byte()).all(dim=-1).sum()
+            
 
             # Move output and label back to cpu to be processed by sklearn
             predicted = predicted.to('cpu')
@@ -465,17 +540,20 @@ def main():
             test_cut = test_dataset.to_eval
         else:
             test_cut = test.to_eval
-        '''print("test_cut, y_test.shape, y_test[:,test_cut].shape, constr_test.shape, constr_test.data[:,test_cut].shape")
-        print(test_cut, y_test.shape, y_test[:,test_cut].shape, constr_test.shape, constr_test.data[:,test_cut].shape)
-        print("predicted_test[:,test_cut].shape")
-        print(predicted_test[:,test_cut].shape)'''
+        #print("test_cut, y_test.shape, y_test[:,test_cut].shape, constr_test.shape, constr_test.data[:,test_cut].shape")
+        #print(test_cut, y_test.shape, y_test[:,test_cut].shape, constr_test.shape, constr_test.data[:,test_cut].shape)
+        #print("predicted_test[:,test_cut].shape")
+        #print(predicted_test[:,test_cut].shape)
         
         test_val_e = perf_counter()
         avg_score = average_precision_score(y_test[:,test_cut], constr_test.data[:,test_cut], average='micro')
         jss = jaccard_score(y_test[:,test_cut], predicted_test[:,test_cut], average='micro')
+        
         print(f"Number of correct: {test_correct}")
         print(f"avg_score: {avg_score}")
         print(f"test micro AP {jss}\t{(test_val_e-test_val_t):.4f}")
+
+    '''
 
     def evaluate_circuit(model, gate, cmpe, epoch, data_loader, data_split, prefix):
 
@@ -499,6 +577,7 @@ def main():
 
             cmpe.set_params(thetas)
             pred_y = (cmpe.get_mpe_inst(x.shape[0]) > 0).long()
+           
 
             pred_y = pred_y.to('cpu')
             #print(pred_y.shape)
@@ -506,6 +585,7 @@ def main():
             #print(y.shape)
 
             num_correct = (pred_y == y.byte()).all(dim=-1).sum()
+            
 
             if i == 0:
                 test_correct = num_correct
@@ -522,12 +602,14 @@ def main():
         
         accuracy = test_correct / len(y_test)
         nll = nll.detach().to("cpu").numpy() / (i+1)
-        '''if y_test.shape == predicted_test.shape:
+        '''
+        if y_test.shape == predicted_test.shape:
             print("y_test.shape == predicted_test.shape")
         else:
             print("y_test and predicted_test shape mismatch")
         print(y_test.shape, predicted_test.shape)
-        print(y_test.dtype, predicted_test.dtype)'''
+        print(y_test.dtype, predicted_test.dtype)
+        '''
         if "cub" in args.dataset:
             # Ensure correct shape (1D numpy array)
             y_test = y_test.squeeze()
@@ -616,7 +698,7 @@ def main():
                 loss = cmpe.cross_entropy(labels, log_space=True).mean()
 
             else:
-                y = labels
+                #y = labels
                 output = model(x.float(), sigmoid=False)
                 thetas = gate(output)
                 cmpe.set_params(thetas)

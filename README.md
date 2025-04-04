@@ -21,3 +21,7 @@ pip install -vvv --upgrade --force-reinstall --no-binary :all: --no-deps pysdd
 
 ## Commands
 Each of the four tasks includes a .sh script for training and testing.
+
+
+## Hyperparameters (mayleyc note)
+To use the CUB mini dataset, enter the dataset as cub_mini. For full CUB, use cub_others. For other datasets, type the name followed by the type of dataset, e.g. expr_FUN or enron_others.

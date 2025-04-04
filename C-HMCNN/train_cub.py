@@ -3,6 +3,8 @@ import datetime
 import json
 from time import perf_counter
 import copy
+import pickle
+import glob
 
 import torch
 import torch.nn as nn
@@ -40,7 +42,7 @@ def log1mexp(x):
 from torch.utils.data import Dataset
 from PIL import Image
 
-class CUB_Dataset(Dataset):
+'''class CUB_Dataset(Dataset):
     def __init__(self, image_paths, labels, transform = None, to_eval = True):
         """
         Args:
@@ -103,6 +105,28 @@ class CUB_Dataset(Dataset):
         _, image, _ = self.process_image(img_path)
 
         return image, label_set
+'''   
+class CUB_Dataset_Embeddings(Dataset):
+    def __init__(self, embeddings, labels, to_eval = True):
+        self.embeddings = embeddings
+        self.labels = labels
+        self.to_eval = to_eval
+
+    def __len__(self):
+        """
+        Returns dataset size.
+        """
+        return len(self.labels)
+
+    def __getitem__(self, idx):
+        """
+        Get and process a sample given index `idx`.
+        """
+        emb = self.embeddings[idx]
+        label = self.labels[idx]
+
+        return emb, label
+
 
 class ConstrainedFFNNModel(nn.Module):
     """ C-HMCNN(h) model - during training it returns the not-constrained output that is then passed to MCLoss """
@@ -112,6 +136,7 @@ class ConstrainedFFNNModel(nn.Module):
         self.nb_layers = hyperparams['num_layers']
         self.R = R
         self.dataset = dataset
+        '''
         if "cub" in self.dataset:
             self.conv1 = nn.Conv2d(3, 32, 3)
             self.conv2 = nn.Conv2d(32, 64, 3)
@@ -126,15 +151,19 @@ class ConstrainedFFNNModel(nn.Module):
 
             # Adaptive Pooling
             self.global_pool = nn.AdaptiveAvgPool2d((7, 7)) # like resnet-50
+            '''
 
         fc = []
         
         for i in range(self.nb_layers):
             if i == 0:
+                '''
                 if "cub" in dataset:
                     fc.append(nn.Linear(128 * 7 * 7, hidden_dim))
                 else:
                     fc.append(nn.Linear(input_dim, hidden_dim))
+                    '''
+                fc.append(nn.Linear(input_dim, hidden_dim))
             elif i == self.nb_layers-1:
                 fc.append(nn.Linear(hidden_dim, output_dim))
             else:
@@ -149,6 +178,7 @@ class ConstrainedFFNNModel(nn.Module):
             self.f = nn.ReLU()
         
     def forward(self, x, sigmoid=False, log_sigmoid=False):
+        '''
         if "cub" in self.dataset:
             x = self.pool(self.f(self.conv1(x)))
             x = self.pool(self.f(self.conv2(x)))
@@ -161,7 +191,7 @@ class ConstrainedFFNNModel(nn.Module):
 
             x = self.global_pool(x)
             x = torch.flatten(x, 1)  # Flatten for fully connected layers
-
+        '''
         for i in range(self.nb_layers):
             if i == self.nb_layers-1:
                 if sigmoid:
@@ -190,6 +220,7 @@ class LeNet5(nn.Module):
             self.nb_layers = hyperparams['num_layers']
             self.R = R
             self.dataset = dataset
+            '''
             if "cub" in self.dataset:
                 self.layer1 = nn.Sequential(
                     nn.Conv2d(3, 6, kernel_size=5, stride=1, padding=0),
@@ -210,16 +241,20 @@ class LeNet5(nn.Module):
                 self.fc = nn.Linear(flattened_dim, hidden_dim)
             else:
                 self.fc = nn.Linear(input_dim, hidden_dim)
+            '''
+            self.fc = nn.Linear(input_dim, hidden_dim)
             self.relu = nn.ReLU()
             self.fc1 = nn.Linear(hidden_dim, hidden_dim)
             self.relu1 = nn.ReLU()
             self.fc2 = nn.Linear(hidden_dim, output_dim)
             
     def forward(self, x, sigmoid=False, log_sigmoid=False):
+            '''
             if "cub" in self.dataset:
                 x = self.layer1(x)
                 x = self.layer2(x)
                 x = x.reshape(x.size(0), -1)
+            '''
             x = self.fc(x)
             x = self.relu(x)
             x = self.fc1(x)
@@ -252,6 +287,14 @@ def main():
 
     num_epochs = args.n_epochs
 
+    if "cub" in args.dataset:
+        if "mini" in args.dataset:
+            mat_path = mat_path_mini
+            csv_path = csv_path_mini
+        else:
+            mat_path = mat_path_full
+            csv_path = csv_path_full
+
     # Set the hyperparameters 
     hyperparams = {
         'num_layers': 3,
@@ -265,17 +308,17 @@ def main():
     torch.backends.cudnn.benchmark = False
 
     device = torch.device("cuda:" + str(args.device) if torch.cuda.is_available() else "cpu")
-    
-    # Load the datasets
 
-    import glob
+    emb_model_name = "resnet50"
     
+    '''
     # list of files in cub 2011 and y labels
     if "cub" in args.dataset:
         #Try out with 5 classes in CUB
         # Get all class folder names
         all_classes = sorted(os.listdir(images_dir))  # Sorting ensures consistency
         
+        # To use the CUB mini dataset, enter the dataset as cub_mini. For full CUB, use cub_others
         if "mini" in args.dataset:
         # Select all classes or only the first 5 classes (mini csv, mat and image set)
             selected_classes = all_classes[:5]
@@ -296,10 +339,8 @@ def main():
         label_species = [label.split('.')[-1] for label in labels_unprocessed]
         label_species = [re.sub('_', ' ', label) for label in label_species] # the species-level label for each image
         # Create one-hot encoding based on species lookup in the csv
-        ohe_dict = get_one_hot_labels(label_species, csv_path)
-
+        ohe_dict, unique_val_map = get_one_hot_labels(label_species, csv_path)
         
-        '''
         # Create labels for trials
         ohe_dict_50 = {}
         for index, i in enumerate(ohe_dict.keys()):
@@ -314,7 +355,7 @@ def main():
         ohe_dict_1 = {}
         for i in ohe_dict.keys():
             ohe_dict_1[i] = np.ones(ohe_dict[i].shape)
-        '''
+       
         
         #print(ohe_dict)
         #image_labels = [torch.from_numpy(ohe_dict[species]).to(device) for species in label_species]
@@ -329,10 +370,23 @@ def main():
                     T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
                 ]
             )
+            '''
+    
     if "cub" in args.dataset:    
-        # Split dataset into train, val, and test sets
-        train_paths, temp_paths, train_labels, temp_labels = train_test_split(image_paths, image_labels, test_size=0.3, random_state=args.seed)
-        val_paths, test_paths, val_labels, test_labels = train_test_split(temp_paths, temp_labels, test_size=0.7, random_state=args.seed)
+        # load pickle at /embeddings
+        emb_file = find_latest_emb_file(emb_model_name, dataset_name)
+
+        # Load and split dataset into train, val, and test sets
+        with open(emb_file, "rb") as f:
+            all_paths, all_embeddings, labels_unprocessed = pickle.load(f)
+        label_species = [label.split('.')[-1] for label in labels_unprocessed]
+        label_species = [re.sub('_', ' ', label) for label in label_species] # the species-level label for each image
+        
+        ohe_dict, _ = get_one_hot_labels(label_species, csv_path)
+        ohe_labels = [torch.from_numpy(ohe_dict[species]).to(device) for species in label_species]
+        all_embeddings_tensor = [torch.tensor(emb) for emb in all_embeddings]
+        train_emb, temp_emb, train_labels, temp_labels = train_test_split(all_embeddings_tensor, ohe_labels, test_size=0.3, random_state=args.seed)
+        val_emb, test_emb, val_labels, test_labels = train_test_split(temp_emb, temp_labels, test_size=0.7, random_state=args.seed)
         
     elif ('others' in args.dataset):
         train, test = initialize_other_dataset(dataset_name, datasets)
@@ -346,9 +400,9 @@ def main():
         #Create loaders
     if "cub" in args.dataset:
         # Create datasets for each split: Change labels
-        train_dataset = CUB_Dataset(train_paths, train_labels, transform, to_eval = True)
-        val_dataset = CUB_Dataset(val_paths, val_labels, transform, to_eval = True)
-        test_dataset = CUB_Dataset(test_paths, test_labels, transform, to_eval = True)
+        train_dataset = CUB_Dataset_Embeddings(train_emb, train_labels, to_eval = True)
+        val_dataset = CUB_Dataset_Embeddings(val_emb, val_labels, to_eval = True)
+        test_dataset = CUB_Dataset_Embeddings(test_emb, test_labels, to_eval = True)
 
         # convert them into tensors: shape = output_dim + 1
         train_dataset.to_eval, val_dataset.to_eval, test_dataset.to_eval = torch.tensor(train_dataset.to_eval, dtype=torch.bool), torch.tensor(val_dataset.to_eval, dtype=torch.bool), torch.tensor(test_dataset.to_eval, dtype=torch.bool)
@@ -384,7 +438,7 @@ def main():
         num_to_skip = 1
 
     # Prepare matrix
-    if "cub" in args.dataset:
+    if "cub" in args.dataset:        
         mat = np.load(mat_path)
     else:
         mat = train.A
@@ -470,12 +524,21 @@ def main():
         gate = DenseGatingFunction(cmpe.beta, gate_layers=[128]).to(device) #changed 462 to 128. why 462?
         R = None
 
+    # Define model, optimizer and loss
+
+    model = ConstrainedFFNNModel(input_dims[data], hidden_dim, output_dim, hyperparams, R, args.dataset)
+    #model = LeNet5(input_dims[data], hidden_dim, output_dim, hyperparams, R, args.dataset)
+    model.to(device)
+    print("Model on gpu", next(model.parameters()).is_cuda)
+    optimizer = torch.optim.Adam(list(model.parameters()) + list(gate.parameters()), lr=args.lr, weight_decay=args.wd)
+    criterion = nn.BCELoss(reduction="none")
+
     # Output path
     if args.exp_id:
         out_path = os.path.join(args.output, args.exp_id)
     else:
         date_string = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        out_path = os.path.join(args.output,  '{}_{}_{}_{}_{}'.format(args.dataset, date_string, args.batch_size, args.gates, args.lr))
+        out_path = os.path.join(args.output,  '{}_{}_{}_{}_{}_{}'.format(args.dataset,  model.__class__.__name__, date_string, args.batch_size, args.gates, args.lr))
     os.makedirs(out_path, exist_ok=True)
 
     # Tensorboard
@@ -489,16 +552,7 @@ def main():
     with open(args_out_path, 'w') as f:
         f.write(json_args)
 
-    # Create the model
-    # Load train, val and test set
 
-    model = ConstrainedFFNNModel(input_dims[data], hidden_dim, output_dim, hyperparams, R, args.dataset) # 1% at 45 ep, learns faster?/better? but accuracy still low, 13%
-    #model = LeNet5(input_dims[data], hidden_dim, output_dim, hyperparams, R, args.dataset) #1% accuracy at 80 epochs
-
-    model.to(device)
-    print("Model on gpu", next(model.parameters()).is_cuda)
-    optimizer = torch.optim.Adam(list(model.parameters()) + list(gate.parameters()), lr=args.lr, weight_decay=args.wd)
-    criterion = nn.BCELoss(reduction="none")
     '''
     def evaluate(model):
         test_val_t = perf_counter()
@@ -572,7 +626,7 @@ def main():
             emb = model(x.float())
             thetas = gate(emb)
 
-            # negative log likelihood and map
+            # negative log likelihood and map = CE loss (output from circuit)
             cmpe.set_params(thetas)
             nll = cmpe.cross_entropy(y, log_space=True).mean()
 
@@ -629,7 +683,7 @@ def main():
         print(f"Jaccard Score: {jaccard}")
         print(f"nll: {nll}")
 
-
+        #prefix: train, test, etc.
         return {
             f"{prefix}/accuracy": (accuracy, epoch, dt),
             f"{prefix}/hamming": (hamming, epoch, dt),
@@ -646,8 +700,10 @@ def main():
 
     #Initialize Variables for EarlyStopping
     best_loss = float('inf')
+    valid_loss = float('inf')
     best_model_weights = None
     best_model_path = None
+    best_gate_path = None
     patience = 10
     model_save_folder = "models"
 
@@ -656,6 +712,7 @@ def main():
         if epoch % 5 == 0 and epoch != 0:
 
             print(f"EVAL@{epoch}")
+            #joint dict
             perf = {
                 **evaluate_circuit(
                     model,
@@ -672,13 +729,15 @@ def main():
                     cmpe,
                     epoch=epoch,
                     data_loader=valid_loader,
-                    data_split=data_split_train,
+                    data_split=data_split_train, #why train?
                     prefix="param_sdd/valid",
                 ),
             }
 
-            for perf_name, (score, epoch, dt) in perf.items():
+            for perf_name, (score, epoch, dt) in perf.items(): #perf_name = metric (accuracy, nll, etc.) Every 5 epochs
                 writer.add_scalar(perf_name, score, global_step=epoch, walltime=dt)
+                if "valid" in perf_name and "nll" in perf_name:
+                    valid_loss = score
 
             writer.flush()
 
@@ -711,38 +770,48 @@ def main():
         avg_loss = tot_loss/(i+1)
         print(f"{epoch+1}/{num_epochs} train loss: {avg_loss}\t {(train_e-train_t):.4f}")
 
-        # Early stopping
-        if avg_loss < best_loss:
+        # Early stopping loop and save best model
+        if avg_loss < best_loss: #may change to valid_loss instead of avg_loss (training loss). avg_loss performs slightly better (longer training time)
             best_loss = avg_loss
             best_model_weights = copy.deepcopy(model.state_dict()) #Retrieve best model weights 
             patience = 10  # Reset patience counter
             if args.exp_id:
-                out_path_model = os.path.join(model_save_folder, args.exp_id)
+                out_path_model = os.path.join(model_save_folder, f"{args.exp_id}_model.pth")
+                out_path_gate = os.path.join(model_save_folder, f"{args.exp_id}_gate.pth")
+
             else:
                 date_string = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
                 out_path_model = os.path.join(model_save_folder,  
-                                              '{}_{}_{}_{}_{}_{}.pth'.format(
-                                                args.dataset, model.__class__.__name__, date_string, args.batch_size, args.gates, args.lr
+                                              '{}_{}_{}_{}_{}_model.pth'.format(
+                                                args.dataset, model.__class__.__name__, date_string, args.batch_size, args.lr
+                                                ))
+                out_path_gate = os.path.join(model_save_folder,  
+                                              '{}_{}_{}_{}_{}_gate.pth'.format(
+                                                args.dataset, model.__class__.__name__, date_string, args.batch_size, args.lr
                                                 ))
             
-            # Remove the previous best model (for each bash run) if exists
-            if best_model_path and os.path.exists(best_model_path):
-                os.remove(best_model_path)
-            # Save best model into .pth file and update best model path            
+            # Remove the previous best model and gate (for each bash run) if exists
+            for i in [best_model_path, best_gate_path]:
+                if i and os.path.exists(i):
+                    os.remove(i)
+
+            # Save best model and gate into .pth files and update best paths            
             os.makedirs(os.path.dirname(out_path_model), exist_ok=True)
+            torch.save(gate.state_dict(), out_path_gate)# save the gate parameters: gate is a dense fc model
             torch.save({
                 'model_state_dict': best_model_weights,
                 'best_loss': best_loss,
                 'batch_size': args.batch_size,
-                'gates': args.gates,
                 'learning_rate': args.lr
                 }, out_path_model)
             best_model_path = out_path_model
+            best_gate_path = out_path_gate
                 
-            
+        # Early stopping    
         else:
             patience -= 1
             if patience == 0:
+                print("Patience ran out.")
                 break
 
 if __name__ == "__main__":

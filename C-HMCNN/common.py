@@ -1,6 +1,7 @@
 import sys
 import os
 import argparse
+import datetime
 import random
 import torch
 import numpy as np
@@ -12,6 +13,7 @@ import torchvision.transforms.functional as F
 import os
 import re
 from PIL import Image
+from pathlib import Path
 
 from tqdm import tqdm
 
@@ -31,6 +33,54 @@ csv_path_mini = "CUB/bird_info_mini.csv"
 mat_path_full = "cub_matrix.npy"
 mat_path_mini = "cub_matrix_mini.npy"
 images_dir = "CUB/CUB_200_2011/images"
+weights_dir = "models"
+embeddings_dir = "embeddings"
+
+
+def find_files_with_string(directory, search_string):
+    return [f for f in Path(directory).iterdir() if search_string in f.name]
+
+# Finds the best .pth file by model name and retrieve .pth with best loss
+def find_best_pth_file(model_name:str):
+    # Get all matching .pth files in the directory
+    files_match = find_files_with_string(weights_dir, model_name)
+
+    best_file = None
+    best_loss = float("inf")
+
+    # Iterate through files and find the one with the lowest best_loss
+    for pth_file in files_match:
+        try:
+            checkpoint = torch.load(pth_file, map_location="cpu")
+            if "best_loss" in checkpoint:
+                loss = checkpoint["best_loss"]
+                if loss < best_loss:
+                    best_loss = loss
+                    best_file = Path(pth_file).resolve()
+        except Exception as e: #when no best_loss is recorded
+            print(f"Skipping {pth_file}: {e}")
+
+    return best_file, best_loss
+
+# Finds the best embedding file by embedding model name and dataset 
+def find_latest_emb_file(model_name:str, dataset_name: str):
+    # Get all matching .pth files in the directory
+    files_match = find_files_with_string(embeddings_dir, f"{model_name}_{dataset_name}")
+    date_strings = [os.path.splitext(os.path.basename(file))[0].split("_")[-1] for file in files_match]
+
+    # Convert strings to datetime objects
+    dates = [datetime.datetime.strptime(d, "%Y%m%d-%H%M%S") for d in date_strings]
+
+    # Find the latest date
+    latest_date = max(dates)
+
+    # Convert back to string for search
+    latest_date_string = latest_date.strftime("%Y%m%d-%H%M%S")
+
+    best_file = find_files_with_string(embeddings_dir, latest_date_string)
+    best_file = best_file[0]
+
+    return best_file
 
 input_dims = {
     "diatoms": 371,
@@ -45,7 +95,7 @@ input_dims = {
     "gasch2": 52,
     "seq": 529,
     "spo": 86,
-    "cub": 800400,
+    "cub": 1000, #length of resnet50 emb
 }
 
 output_dims_FUN = {
@@ -183,6 +233,7 @@ def resize_image(image, height=800, max_width=1333):
 def get_one_hot_labels(label_species: list, csv_path: str):
     label_dict = {}
     df = pd.read_csv(csv_path)
+    # Locate label by species in csv file
     for i in label_species:
         labels = []
         row_idx, _ = np.where(df == i)
@@ -206,7 +257,7 @@ def get_one_hot_labels(label_species: list, csv_path: str):
                 array[idx] += 1
         ohe_dict[i] = array
 
-    return ohe_dict
+    return ohe_dict, unique_val_map
 
 def get_data_and_loaders(dataset_name, batch_size, device):
 
@@ -355,6 +406,15 @@ def parse_args():
         "--no-constraints",
         action="store_true"
     )
+    #Added no-train for test_cub.py
+    parser.add_argument(
+        "--no-train",
+        action="store_true"
+    )
+    parser.add_argument(
+        "--one-each",
+        action="store_true"
+    )
     parser.add_argument(
         "--gates", 
         type=int, 
@@ -373,6 +433,7 @@ def parse_args():
         default=1,
         help='Number of PSDDs in the ensemble'
     )
+    
 
     args = parser.parse_args()
 

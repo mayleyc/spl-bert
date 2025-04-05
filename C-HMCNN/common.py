@@ -239,7 +239,7 @@ def get_one_hot_labels(label_species: list, csv_path: str):
         row_idx, _ = np.where(df == i)
         labels = df.loc[row_idx, df.columns[-4:]]
         label_dict[i] = labels.values.tolist()[0] # converts to list and remove the outer list
-    #print(label_dict)
+    #print(f"Length of label_dict: {len(label_dict)}") #200
     # Convert label_dict to tensors    
     unique_values = []
     for column_name in df.columns[-4:]:  # Focus on last 4 columns, from left to right
@@ -247,6 +247,7 @@ def get_one_hot_labels(label_species: list, csv_path: str):
         unique_values += uv_col_list
     # transform it into an index map for faster lookup
     unique_val_map = {value:idx for idx, value in enumerate(unique_values)}
+    #print(f"Length of unique values: {len(unique_values)}")
     # from label_dict, create one-hot encoding for each label
     ohe_dict = {}
     for i in label_dict:
@@ -256,6 +257,9 @@ def get_one_hot_labels(label_species: list, csv_path: str):
             if idx is not None:
                 array[idx] += 1
         ohe_dict[i] = array
+
+    assert all(len(v) == 373 for v in ohe_dict.values()), "Mismatch in one-hot vector length!" # 372 or len(unique_values) 
+
 
     return ohe_dict, unique_val_map
 

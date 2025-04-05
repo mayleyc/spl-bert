@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from tqdm import tqdm
 
-fp = "CUB/bird_info_mini.csv"
+fp = "CUB/bird_info.csv"
 #fp = "CUB/bird_info_mini.csv"
 #df = pd.read_csv(fp)
 #print(df.iloc[1])
@@ -53,4 +53,4 @@ def csv_2_matrix(df):
 result_matrix = csv_2_matrix(df)
 #print(result_matrix)
 #np.savetxt('matrix.csv', result_matrix, delimiter=',')
-np.save('cub_matrix_mini.npy', result_matrix)
+np.save('cub_matrix.npy', result_matrix)

@@ -10,7 +10,9 @@ import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 from collections import defaultdict
-
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
+from matplotlib import pyplot as plt
 
 from sklearn.model_selection import train_test_split
 
@@ -584,8 +586,8 @@ def main():
         best_file, best_loss = find_best_pth_file(model.__class__.__name__)
         #checkpoint_model = torch.load(best_file)
         #checkpoint_gate = torch.load(re.sub("model", "gate", str(best_file)))
-        checkpoint_model = torch.load("/mnt/cimec-storage6/users/nguyenanhthu.tran/intern25/spl/SPL/C-HMCNN/models/cub_others_ConstrainedFFNNModel_20250405_valloss_model.pth")
-        checkpoint_gate = torch.load("/mnt/cimec-storage6/users/nguyenanhthu.tran/intern25/spl/SPL/C-HMCNN/models/cub_others_ConstrainedFFNNModel_20250405_valloss_gate.pth")
+        checkpoint_model = torch.load("/mnt/cimec-storage6/users/nguyenanhthu.tran/intern25/spl/SPL/C-HMCNN/models/cub_others_ConstrainedFFNNModel_20250405-000154_256_0.001_avgloss_model.pth")
+        checkpoint_gate = torch.load("/mnt/cimec-storage6/users/nguyenanhthu.tran/intern25/spl/SPL/C-HMCNN/models/cub_others_ConstrainedFFNNModel_20250405-000154_256_0.001_avgloss_gate.pth")
         model.load_state_dict(checkpoint_model["model_state_dict"], strict=True)
         gate.load_state_dict(checkpoint_gate, strict=True)
     print("Loaded best weights")
@@ -686,6 +688,33 @@ def main():
         accuracy = test_correct / len(y_test)
         nll = nll.detach().to("cpu").numpy() / (i+1)
 
+       #Create confusion matrix per class
+        #y_true, y_pred = shape (no. of examples, 1, 373)
+
+        assert y_test.shape == predicted_test.shape, "Mismatch between y and y_pred lengths!"
+        #remove redundant dimension (all True)
+        y_test_squeeze = y_test.squeeze(1)
+        predicted_test_squeeze = predicted_test.squeeze(1)
+        true_split = split_category(y_test_squeeze)
+        pred_split = split_category(predicted_test_squeeze)
+        matrix_names = ["order", "family", "genus", "species"]
+
+        os.makedirs("./confusion_matrices/", exist_ok=True)
+
+        for t, p, n in zip(true_split, pred_split, matrix_names):
+            t = convert_ohe_to_1d(t)
+            p = convert_ohe_to_1d(p)
+            matrix = confusion_matrix(t, p)
+            df = pd.DataFrame(matrix)
+            plt.figure(figsize=(10, 8))  # optional: adjust size
+            sns.heatmap(df, cmap = "crest", fmt="d")
+            plt.xlabel("Predicted")
+            plt.ylabel("True")
+            plt.title("Confusion Matrix")
+            plt.savefig(f"./confusion_matrices/{n}_{model.__class__.__name__}_constraints{args.no_constraints}_{date_string}.png")
+            plt.close()
+
+        print("Confusion matrices successfully generated.")
         if "cub" in args.dataset:
             # Ensure correct shape (1D numpy array)
             y_test = y_test.squeeze()
@@ -706,6 +735,8 @@ def main():
         
         jaccard = jaccard_score(y_test, predicted_test, average='micro')
         hamming = hamming_loss(y_test, predicted_test)
+
+ 
 
         print(f"Evaluation metrics on {prefix} \t {dt:.4f}")
         print(f"Num. correct: {test_correct}")

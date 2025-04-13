@@ -10,6 +10,7 @@ import networkx as nx
 import torchvision.transforms as T
 import torchvision.transforms.functional as F
 
+
 import os
 import re
 from PIL import Image
@@ -258,13 +259,42 @@ def get_one_hot_labels(label_species: list, csv_path: str):
                 array[idx] += 1
         ohe_dict[i] = array
 
-    assert all(len(v) == 373 for v in ohe_dict.values()), "Mismatch in one-hot vector length!" # 372 or len(unique_values) 
-
+    assert all(len(v) == 373 for v in ohe_dict.values()), "Mismatch in one-hot vector length!" # 373 or len(unique_values) 
 
     return ohe_dict, unique_val_map
 
-def get_data_and_loaders(dataset_name, batch_size, device):
+# Define the number of unique categories at each level # Total of CUB: 373 at the depth of 4
+num_orders = 13
+num_families = 37
+num_genera = 123
+num_species = 200
 
+# Calculate the column ranges for each level
+order_range = slice(0, num_orders)
+family_range = slice(num_orders, num_orders + num_families)
+genus_range = slice(num_orders + num_families, num_orders + num_families + num_genera)
+species_range = slice(num_orders + num_families + num_genera, num_orders + num_families + num_genera + num_species)
+
+#split (2476, 373) tensor into columns by no. of orders, families, etc.
+def split_category(y): 
+    y_order, y_family, y_genus, y_species = torch.split(y, [num_orders, num_families, num_genera, num_species], dim=1)
+    ''' 
+    y_order = y[:, order_range]
+    y_family = y[:, family_range]
+    y_genus = y[:, genus_range]
+    y_species = y[:, species_range]
+    '''
+
+    return [y_order, y_family, y_genus, y_species]
+
+def convert_ohe_to_1d(y):
+    positives = torch.sum(y, dim=1).to(torch.float) #dim=1: the axis that needs reducing
+    value = y.argmax(dim=1).to(torch.float)
+    y = torch.where(positives == 1, value, torch.full_like(positives, -64))
+    y = y.cpu().numpy()
+    return y
+
+def get_data_and_loaders(dataset_name, batch_size, device):
 
     train, val, test = initialize_dataset(dataset_name, datasets)
 

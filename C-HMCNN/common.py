@@ -264,33 +264,32 @@ def get_one_hot_labels(label_species: list, csv_path: str):
     return ohe_dict, unique_val_map
 
 # Define the number of unique categories at each level # Total of CUB: 373 at the depth of 4
+
 num_orders = 13
 num_families = 37
 num_genera = 123
 num_species = 200
 
-# Calculate the column ranges for each level
-order_range = slice(0, num_orders)
-family_range = slice(num_orders, num_orders + num_families)
-genus_range = slice(num_orders + num_families, num_orders + num_families + num_genera)
-species_range = slice(num_orders + num_families + num_genera, num_orders + num_families + num_genera + num_species)
+'''num_orders = 0
+num_families = 0
+num_genera = 0
+num_species = 200'''
 
 #split (2476, 373) tensor into columns by no. of orders, families, etc.
 def split_category(y): 
     y_order, y_family, y_genus, y_species = torch.split(y, [num_orders, num_families, num_genera, num_species], dim=1)
-    ''' 
-    y_order = y[:, order_range]
-    y_family = y[:, family_range]
-    y_genus = y[:, genus_range]
-    y_species = y[:, species_range]
-    '''
-
+  
     return [y_order, y_family, y_genus, y_species]
+
+def split_category_species(y): 
+    y_species = torch.split(y, num_species, dim=1)
+  
+    return y_species
 
 def convert_ohe_to_1d(y):
     positives = torch.sum(y, dim=1).to(torch.float) #dim=1: the axis that needs reducing
     value = y.argmax(dim=1).to(torch.float)
-    y = torch.where(positives == 1, value, torch.full_like(positives, -64))
+    y = torch.where(positives == 1, value, torch.full_like(positives, -1)) #create new tensor where the sum remains the same when positives == 1, else value = -1
     y = y.cpu().numpy()
     return y
 
@@ -447,6 +446,10 @@ def parse_args():
     )
     parser.add_argument(
         "--one-each",
+        action="store_true"
+    )
+    parser.add_argument(
+        "--species-only",
         action="store_true"
     )
     parser.add_argument(

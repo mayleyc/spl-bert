@@ -494,6 +494,8 @@ def main():
                alpha.ref()
                old_alpha.deref()
 
+               # REPLACE ALPHA
+
             # Saving circuit & vtree to disk
             alpha.save(str.encode('constraints/' + dataset_name + '.sdd'))
             alpha.vtree().save(str.encode('constraints/' + dataset_name + '.vtree'))
@@ -777,17 +779,19 @@ def main():
             patience = 10  # Reset patience counter
             if args.exp_id:
                 out_path_model = os.path.join(model_save_folder, f"{args.exp_id}_model.pth")
+        
                 out_path_gate = os.path.join(model_save_folder, f"{args.exp_id}_gate.pth")
 
             else:
                 date_string = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
                 out_path_model = os.path.join(model_save_folder,  
-                                              '{}_{}_{}_{}_{}_model.pth'.format(
-                                                args.dataset, model.__class__.__name__, date_string, args.batch_size, args.lr
+                                              '{}_{}_{}_{}_nc{}_model.pth'.format(
+                                                args.dataset, model.__class__.__name__, date_string, args.batch_size, args.no_constraints
                                                 ))
+                
                 out_path_gate = os.path.join(model_save_folder,  
-                                              '{}_{}_{}_{}_{}_gate.pth'.format(
-                                                args.dataset, model.__class__.__name__, date_string, args.batch_size, args.lr
+                                              '{}_{}_{}_{}_nc{}_gate.pth'.format(
+                                                args.dataset, model.__class__.__name__, date_string, args.batch_size, args.no_constraints
                                                 ))
             
             # Remove the previous best model and gate (for each bash run) if exists

@@ -293,7 +293,7 @@ class LeNet5(nn.Module):
             else:
                 constrained_out = get_constr_out(x, self.R)
             return constrained_out
-
+    
 def main():
 
     args = parse_args()
@@ -582,20 +582,28 @@ def main():
     
     model = ConstrainedFFNNModel(input_dims[data], hidden_dim, output_dim, hyperparams, R, args.dataset) # 1% at 45 ep, learns faster?/better? but accuracy still low, 13%
     #model = LeNet5(input_dims[data], hidden_dim, output_dim, hyperparams, R, args.dataset) #1% accuracy at 80 epochs
-    if args.no_train:
-        best_file, best_loss = find_best_pth_file(model.__class__.__name__)
-        #checkpoint_model = torch.load(best_file)
-        #checkpoint_gate = torch.load(re.sub("model", "gate", str(best_file)))
-        checkpoint_model = torch.load("/mnt/cimec-storage6/users/nguyenanhthu.tran/intern25/spl/SPL/C-HMCNN/models/cub_others_ConstrainedFFNNModel_20250405-000154_256_0.001_avgloss_model.pth")
-        checkpoint_gate = torch.load("/mnt/cimec-storage6/users/nguyenanhthu.tran/intern25/spl/SPL/C-HMCNN/models/cub_others_ConstrainedFFNNModel_20250405-000154_256_0.001_avgloss_gate.pth")
-        model.load_state_dict(checkpoint_model["model_state_dict"], strict=True)
-        gate.load_state_dict(checkpoint_gate, strict=True)
+    #if args.no_train:
+    best_file, best_loss = find_best_pth_file(model.__class__.__name__)
+    #checkpoint_model = torch.load(best_file)
+    #checkpoint_gate = torch.load(re.sub("model", "gate", str(best_file)))
+    checkpoint_model = torch.load("/mnt/cimec-storage6/users/nguyenanhthu.tran/intern25/spl/SPL/C-HMCNN/models/cub_others_ConstrainedFFNNModel_20250414-122651_256_ncTrue_model.pth")
+    checkpoint_gate = torch.load("/mnt/cimec-storage6/users/nguyenanhthu.tran/intern25/spl/SPL/C-HMCNN/models/cub_others_ConstrainedFFNNModel_20250414-122651_256_ncTrue_gate.pth")
+    model.load_state_dict(checkpoint_model["model_state_dict"], strict=True)
+    gate.load_state_dict(checkpoint_gate, strict=True)
     print("Loaded best weights")
     model.to(device)
     print("Model on gpu", next(model.parameters()).is_cuda)
     # is optimizer reinitializing the weights?
     optimizer = torch.optim.Adam(list(model.parameters()) + list(gate.parameters()), lr=args.lr, weight_decay=args.wd)
     criterion = nn.BCELoss(reduction="none")
+    date_string = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    best_loss = float('inf')
+    valid_loss = float('inf')
+    best_model_weights = None
+    best_model_path = None
+    best_gate_path = None
+    patience = 10
+    model_save_folder = "models"
     
     '''def evaluate(model):
         test_val_t = perf_counter()
@@ -663,12 +671,17 @@ def main():
 
             pred_y = pred_y.to('cpu')
             y = y.to('cpu')
-
-            # compare label and prediction per example (y and pred_y are batches)
+            
+            # compare label and prediction per example (y and pred_y are batches, shape (256, 373))
             for j in range(x.shape[0]):  
                 difference = (pred_y[j] - y[j]).cpu().numpy()
                 diff_data.append(difference)
             
+            if args.species_only:
+                #species only: select last 200 columns
+                pred_y = pred_y[:, -200:]
+                y = y[:, -200:]
+
             num_correct = (pred_y == y.byte()).all(dim=-1).sum()
 
             if i == 0:
@@ -684,37 +697,25 @@ def main():
         dt = perf_counter() - test_val_t
         y_test = y_test[:,data_split.to_eval]
         predicted_test = predicted_test[:,data_split.to_eval]
+        
 
         accuracy = test_correct / len(y_test)
         nll = nll.detach().to("cpu").numpy() / (i+1)
 
-       #Create confusion matrix per class
-        #y_true, y_pred = shape (no. of examples, 1, 373)
-
         assert y_test.shape == predicted_test.shape, "Mismatch between y and y_pred lengths!"
-        #remove redundant dimension (all True)
-        y_test_squeeze = y_test.squeeze(1)
-        predicted_test_squeeze = predicted_test.squeeze(1)
-        true_split = split_category(y_test_squeeze)
-        pred_split = split_category(predicted_test_squeeze)
-        matrix_names = ["order", "family", "genus", "species"]
+        
+        if "cub" in args.dataset:
+            #remove redundant dimension (all True)
+            y_test_squeeze = y_test.squeeze(1)
+            predicted_test_squeeze = predicted_test.squeeze(1)
 
-        os.makedirs("./confusion_matrices/", exist_ok=True)
+        if args.species_only:
+            true_split = split_category_species(y_test_squeeze)
+            pred_split = split_category_species(predicted_test_squeeze)
+        else:
+            true_split = split_category(y_test_squeeze)
+            pred_split = split_category(predicted_test_squeeze)
 
-        for t, p, n in zip(true_split, pred_split, matrix_names):
-            t = convert_ohe_to_1d(t)
-            p = convert_ohe_to_1d(p)
-            matrix = confusion_matrix(t, p)
-            df = pd.DataFrame(matrix)
-            plt.figure(figsize=(10, 8))  # optional: adjust size
-            sns.heatmap(df, cmap = "crest", fmt="d")
-            plt.xlabel("Predicted")
-            plt.ylabel("True")
-            plt.title("Confusion Matrix")
-            plt.savefig(f"./confusion_matrices/{n}_{model.__class__.__name__}_constraints{args.no_constraints}_{date_string}.png")
-            plt.close()
-
-        print("Confusion matrices successfully generated.")
         if "cub" in args.dataset:
             # Ensure correct shape (1D numpy array)
             y_test = y_test.squeeze()
@@ -726,17 +727,9 @@ def main():
         #print(f"Output: {predicted_test[:5]}")  # Print the first 5 model outputs
         #print(f"True Labels: {y_test[:5]}")  # Print the first 5 true labels
 
-        if y_test.shape == predicted_test.shape:
-            print("y_test.shape == predicted_test.shape")
-        else:
-            print("y_test and predicted_test shape mismatch")
-        print(y_test.shape, predicted_test.shape)
-        print(y_test.dtype, predicted_test.dtype)
         
         jaccard = jaccard_score(y_test, predicted_test, average='micro')
         hamming = hamming_loss(y_test, predicted_test)
-
- 
 
         print(f"Evaluation metrics on {prefix} \t {dt:.4f}")
         print(f"Num. correct: {test_correct}")
@@ -751,7 +744,8 @@ def main():
             f"{prefix}/hamming": (hamming, epoch, dt),
             f"{prefix}/jaccard": (jaccard, epoch, dt),
             f"{prefix}/nll": (nll, epoch, dt),
-        }
+        }, true_split, pred_split
+    
     if "cub" in args.dataset:
         if args.one_each:
             data_split_test = test_dataset_1_each
@@ -772,40 +766,84 @@ def main():
     if args.no_train:
         diff_data_train = []
         diff_data_test = []
-        perf = {
-                **evaluate_circuit(
-                    model,
-                    gate, 
-                    cmpe,
-                    epoch=None,
-                    data_loader=test_load,
-                    data_split=data_split_test,
-                    prefix="param_sdd/test",
-                    diff_data=diff_data_test
-                    ),
-                **evaluate_circuit(
-                    model,
-                    gate,
-                    cmpe,
-                    epoch=None,
-                    data_loader=train_load,
-                    data_split=data_split_train,
-                    prefix="param_sdd/train",
-                    diff_data=diff_data_train
-                ),
-            }
+        perf_test, true_split_test, pred_split_test = evaluate_circuit(
+            model,
+            gate, 
+            cmpe,
+            epoch=None,
+            data_loader=test_load,
+            data_split=data_split_test,
+            prefix="param_sdd/test",
+            diff_data=diff_data_test
+        )
 
+        '''
+        perf_train, true_split_train, pred_split_train = evaluate_circuit(
+            model,
+            gate,
+            cmpe,
+            epoch=None,
+            data_loader=train_load,
+            data_split=data_split_train,
+            prefix="param_sdd/train",
+            diff_data=diff_data_train
+        )
+        '''
+
+        # Merge dicts
+        perf = {**perf_test} #, **perf_train}
+        
+        # Export metrics
         for perf_name, (score, epoch, dt) in perf.items():
             writer.add_scalar(perf_name, score, global_step=epoch, walltime=dt)
-            split_name = perf_name.split("/")[1]
-            df = pd.DataFrame(diff_data_test if "test" in split_name else diff_data_train)
-            if args.exp_id:
-                df.to_csv(f"difference_{split_name}_{model.__class__.__name__}_oe{args.one_each}_{args.exp_id}.csv", index=False) # this will save it 4 times so rewrite pls
-            else:
-                df.to_csv(f"difference_{split_name}_{model.__class__.__name__}_oe{args.one_each}.csv", index=False)
-
         writer.flush()
-        
+
+        # Save difference file for test and train sets
+
+        if args.exp_id:
+            pd.DataFrame(diff_data_train).to_csv(f"difference_train_{model.__class__.__name__}_oe{args.one_each}_{args.exp_id}_{date_string}.csv", index=False)
+            pd.DataFrame(diff_data_test).to_csv(f"difference_test_{model.__class__.__name__}_oe{args.one_each}_{args.exp_id}_{date_string}.csv", index=False)
+        else:
+            pd.DataFrame(diff_data_train).to_csv(f"difference_train_{model.__class__.__name__}_oe{args.one_each}_{date_string}.csv", index=False)
+            pd.DataFrame(diff_data_test).to_csv(f"difference_test_{model.__class__.__name__}_oe{args.one_each}_{date_string}.csv", index=False)
+
+        #Create confusion matrix per class for test set only
+        if args.species_only:
+            matrix_names = ["species"]
+            num_classes_per_level = [200]
+            
+        else:
+            matrix_names = ["order", "family", "genus", "species"]
+            num_classes_per_level = [13, 37, 123, 200]
+        #
+        cm_folder = f"./confusion_matrices/{date_string}_{args.exp_id}"
+
+        if args.exp_id:
+            cm_folder = f"./confusion_matrices/{date_string}_{args.exp_id}"
+        else:
+            cm_folder = f"./confusion_matrices/{date_string}"
+
+        os.makedirs(cm_folder, exist_ok=True)
+
+        for t, p, n, num_classes in tqdm(zip(true_split_test, pred_split_test, matrix_names, num_classes_per_level)):
+            print(f"\nEvaluating on {n}: ")
+
+            t = convert_ohe_to_1d(t)
+            p = convert_ohe_to_1d(p)
+
+            labels = list(range(num_classes))
+            matrix = confusion_matrix(t, p)
+            df = pd.DataFrame(matrix)
+            plt.figure(figsize=(20, 16))  # optional: adjust size
+            sns.heatmap(df, cmap = "crest", fmt="d", linewidths=0.5, linecolor='white')
+            plt.xlabel("Predicted")
+            plt.ylabel("True")
+            plt.title("Confusion Matrix") 
+            
+            plt.savefig(os.path.join(cm_folder, f"{n}_{model.__class__.__name__}_nc{args.no_constraints}_{date_string}.png"))
+            plt.close()
+
+        print("Confusion matrices successfully generated.")        
         
     #testing for a training model    
     else:
@@ -815,8 +853,7 @@ def main():
             if epoch % 5 == 0 and epoch != 0:
 
                 print(f"EVAL@{epoch}")
-                perf = {
-                    **evaluate_circuit(
+                perf_test, true_split_test, pred_split_test = evaluate_circuit(
                         model,
                         gate, 
                         cmpe,
@@ -825,15 +862,15 @@ def main():
                         data_split=data_split_test,
                         prefix="param_sdd/test",
                         diff_data=diff_data_test
-                    ),
-                }
+                    )
+                perf = {**perf_test}
 
                 for perf_name, (score, epoch, dt) in perf.items():
                     writer.add_scalar(perf_name, score, global_step=epoch, walltime=dt)
 
                 writer.flush()
-
-        
+            
+                       
             train_t = perf_counter()
 
             model.train() #why not change it to eval and load best trained model?
@@ -859,7 +896,118 @@ def main():
                 optimizer.step()
 
             train_e = perf_counter()
-            print(f"{epoch+1}/{num_epochs} train loss: {tot_loss/(i+1)}\t {(train_e-train_t):.4f}")
+            avg_loss = tot_loss/(i+1)
+            print(f"{epoch+1}/{num_epochs} train loss: {avg_loss}\t {(train_e-train_t):.4f}")
+
+            # Early stopping loop and save best model
+            if avg_loss < best_loss: #may change to valid_loss instead of avg_loss (training loss). avg_loss performs slightly better (longer training time)
+                best_loss = avg_loss
+                best_model_weights = copy.deepcopy(model.state_dict()) #Retrieve best model weights 
+                patience = 10  # Reset patience counter
+                if args.exp_id:
+                    out_path_model = os.path.join(model_save_folder, f"{date_string}_{args.exp_id}_model_finetuned.pth")
+            
+                    out_path_gate = os.path.join(model_save_folder, f"{date_string}_{args.exp_id}_gate_finetuned.pth")
+
+                else:
+                    date_string = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+                    out_path_model = os.path.join(model_save_folder,  
+                                                '{}_{}_{}_{}_nc{}_model_finetuned.pth'.format(
+                                                    args.dataset, model.__class__.__name__, date_string, args.batch_size, args.no_constraints
+                                                    ))
+                    
+                    out_path_gate = os.path.join(model_save_folder,  
+                                                '{}_{}_{}_{}_nc{}_gate_finetuned.pth'.format(
+                                                    args.dataset, model.__class__.__name__, date_string, args.batch_size, args.no_constraints
+                                                    ))
+                
+                # Remove the previous best model and gate (for each bash run) if exists
+                for i in [best_model_path, best_gate_path]:
+                    if i and os.path.exists(i):
+                        os.remove(i)
+
+                # Save best model and gate into .pth files and update best paths            
+                os.makedirs(os.path.dirname(out_path_model), exist_ok=True)
+                torch.save(gate.state_dict(), out_path_gate)# save the gate parameters: gate is a dense fc model
+                torch.save({
+                    'model_state_dict': best_model_weights,
+                    'best_loss': best_loss,
+                    'batch_size': args.batch_size,
+                    'learning_rate': args.lr
+                    }, out_path_model)
+                best_model_path = out_path_model
+                best_gate_path = out_path_gate
+                    
+            # Early stopping    
+            else:
+                patience -= 1
+                if patience == 0:
+                    #generate confusion matrix and evaluate at epoch 200
+            
+                    print(f"EVAL@{epoch+1}")
+                    perf_test, true_split_test, pred_split_test = evaluate_circuit(
+                            model,
+                            gate, 
+                            cmpe,
+                            epoch=epoch,
+                            data_loader=test_load,
+                            data_split=data_split_test,
+                            prefix="param_sdd/test",
+                            diff_data=diff_data_test
+                        )
+                    perf = {**perf_test}
+
+                    for perf_name, (score, epoch, dt) in perf.items():
+                        writer.add_scalar(perf_name, score, global_step=epoch, walltime=dt)
+
+                    writer.flush()
+
+                    # Save difference file for test and train sets
+
+                    if args.exp_id:
+                        pd.DataFrame(diff_data_test).to_csv(f"difference_test_{model.__class__.__name__}_oe{args.one_each}_{args.exp_id}_{date_string}.csv", index=False)
+                    else:
+                        pd.DataFrame(diff_data_test).to_csv(f"difference_test_{model.__class__.__name__}_oe{args.one_each}_{date_string}.csv", index=False)
+
+                    #Create confusion matrix per class for test set only
+                    if args.species_only:
+                        matrix_names = ["species"]
+                        num_classes_per_level = [200]
+                        
+                    else:
+                        matrix_names = ["order", "family", "genus", "species"]
+                        num_classes_per_level = [13, 37, 123, 200]
+                    #
+                    cm_folder = f"./confusion_matrices/{date_string}_{args.exp_id}"
+
+                    if args.exp_id:
+                        cm_folder = f"./confusion_matrices/{date_string}_{args.exp_id}"
+                    else:
+                        cm_folder = f"./confusion_matrices/{date_string}"
+
+                    os.makedirs(cm_folder, exist_ok=True)
+
+                    for t, p, n, num_classes in tqdm(zip(true_split_test, pred_split_test, matrix_names, num_classes_per_level)):
+                        print(f"\nEvaluating on {n}: ")
+
+                        t = convert_ohe_to_1d(t)
+                        p = convert_ohe_to_1d(p)
+
+                        labels = list(range(num_classes))
+                        matrix = confusion_matrix(t, p)
+                        df = pd.DataFrame(matrix)
+                        plt.figure(figsize=(20, 16))  # optional: adjust size
+                        sns.heatmap(df, cmap = "crest", fmt="d", linewidths=0.5, linecolor='white')
+                        plt.xlabel("Predicted")
+                        plt.ylabel("True")
+                        plt.title("Confusion Matrix") 
+                        
+                        plt.savefig(os.path.join(cm_folder, f"{n}_{model.__class__.__name__}_nc{args.no_constraints}_{date_string}.png"))
+                        plt.close()
+
+                    print("Confusion matrices successfully generated.") 
+                    print("Patience ran out.")
+                    break
         
 
 if __name__ == "__main__":

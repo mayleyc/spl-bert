@@ -24,4 +24,4 @@ Each of the four tasks includes a .sh script for training and testing.
 
 
 ## Hyperparameters (mayleyc note)
-To use the CUB mini dataset, enter the dataset as cub_mini. For full CUB, use cub_others. For other datasets, type the name followed by the type of dataset, e.g. expr_FUN or enron_others.
+To use the CUB mini dataset, enter the --dataset hyperparameter as cub_mini. For full CUB, use cub_others. For other datasets, type the name followed by the dataset type, e.g. expr_FUN or enron_others.

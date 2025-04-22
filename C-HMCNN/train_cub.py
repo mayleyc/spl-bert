@@ -455,6 +455,7 @@ def main():
             R = np.zeros(mat.shape)
             np.fill_diagonal(R, 1)
             g = nx.DiGraph(mat)
+            layer_map = layer_mapping_BFS(g)
             for i in range(len(mat)):
                 descendants = list(nx.descendants(g, i))
                 if descendants:
@@ -494,7 +495,30 @@ def main():
                alpha.ref()
                old_alpha.deref()
 
-               # REPLACE ALPHA
+            # Mutual exclusivity logic
+            
+            # applies to the last layer (last layer is most prone to violations)
+            max_layer = max(layer_map.values())
+            me_layers = {max_layer-1, max_layer}
+            for i in range(R.size(0)): #for all genera g
+                if layer_map[i] not in me_layers:
+                    continue
+                species = [j for j in range(R.size(0)) if R[i][j] and i != j] # for all species under g
+
+                for idx1 in range(len(species)):
+                    for idx2 in range(idx1 + 1, len(species)): # all species after s1
+                        s1 = species[idx1] 
+                        s2 = species[idx2] 
+
+                        old_beta = beta
+                        beta = beta & (-mgr.vars[s1+1] | -mgr.vars[s2+1]) # sdd count starts at 1
+                        beta.ref()
+                        old_beta.deref()
+
+                old_alpha = alpha
+                alpha = alpha & beta
+                alpha.ref()
+                old_alpha.deref()
 
             # Saving circuit & vtree to disk
             alpha.save(str.encode('constraints/' + dataset_name + '.sdd'))

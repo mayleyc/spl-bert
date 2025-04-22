@@ -504,6 +504,8 @@ def main():
                 var_count=R.size(0),
                 auto_gc_and_minimize=True)
 
+            
+
             alpha = mgr.true()
             alpha.ref()
             for i in range(R.size(0)):
@@ -512,14 +514,14 @@ def main():
                beta.ref()
                for j in range(R.size(0)):
 
-                   if R[i][j] and i != j:
-                       old_beta = beta
-                       beta = beta & mgr.vars[j+1]
-                       beta.ref()
-                       old_beta.deref()
+                   if R[i][j] and i != j: # if j is descendant of i and not in the diagonal
+                       old_beta = beta # clone new beta
+                       beta = beta & mgr.vars[j+1] #beta = {boolean val of beta} AND class_j_is_active
+                       beta.ref() #protect new one
+                       old_beta.deref() #remove old_beta
 
                old_beta = beta
-               beta = -mgr.vars[i+1] | beta
+               beta = -mgr.vars[i+1] | beta #if class i is present, then all its descendants must be present
                beta.ref()
                old_beta.deref()
 
@@ -584,11 +586,18 @@ def main():
     #model = LeNet5(input_dims[data], hidden_dim, output_dim, hyperparams, R, args.dataset) #1% accuracy at 80 epochs
     #if args.no_train:
     best_file, best_loss = find_best_pth_file(model.__class__.__name__)
+    pretrained = False
     #checkpoint_model = torch.load(best_file)
     #checkpoint_gate = torch.load(re.sub("model", "gate", str(best_file)))
-    checkpoint_model = torch.load("/mnt/cimec-storage6/users/nguyenanhthu.tran/intern25/spl/SPL/C-HMCNN/models/cub_others_ConstrainedFFNNModel_20250414-122651_256_ncTrue_model.pth")
-    checkpoint_gate = torch.load("/mnt/cimec-storage6/users/nguyenanhthu.tran/intern25/spl/SPL/C-HMCNN/models/cub_others_ConstrainedFFNNModel_20250414-122651_256_ncTrue_gate.pth")
-    model.load_state_dict(checkpoint_model["model_state_dict"], strict=True)
+    checkpoint_model = torch.load("/mnt/cimec-storage6/users/nguyenanhthu.tran/intern25/spl/SPL/C-HMCNN/models/cub_others_Pretrain_Model_20250422-053938_256_ncFalse_patienceFalse_pretrained_model.pth")
+    checkpoint_gate = torch.load("/mnt/cimec-storage6/users/nguyenanhthu.tran/intern25/spl/SPL/C-HMCNN/models/cub_others_ConstrainedFFNNModel_20250405-000154_256_0.001_avgloss_gate.pth")
+    if pretrained == True:
+        full_model = checkpoint_model["model_state_dict"]
+        backbone_state_dict = {k.replace('backbone.', ''):v for k, v in full_model.items() if k.startswith('backbone.')} # extract only the backbone states
+        model.load_state_dict(backbone_state_dict, strict=True)
+
+    else:
+        model.load_state_dict(checkpoint_model["model_state_dict"], strict=True)
     gate.load_state_dict(checkpoint_gate, strict=True)
     print("Loaded best weights")
     model.to(device)
@@ -801,11 +810,11 @@ def main():
         # Save difference file for test and train sets
 
         if args.exp_id:
-            pd.DataFrame(diff_data_train).to_csv(f"difference_train_{model.__class__.__name__}_oe{args.one_each}_{args.exp_id}_{date_string}.csv", index=False)
-            pd.DataFrame(diff_data_test).to_csv(f"difference_test_{model.__class__.__name__}_oe{args.one_each}_{args.exp_id}_{date_string}.csv", index=False)
+            #pd.DataFrame(diff_data_train).to_csv(f"difference_train_{model.__class__.__name__}_oe{args.one_each}_{args.exp_id}_{date_string}.csv", index=False, header=False)
+            pd.DataFrame(diff_data_test).to_csv(f"difference_test_{model.__class__.__name__}_oe{args.one_each}_{args.exp_id}_{date_string}.csv", index=False, header=False)
         else:
-            pd.DataFrame(diff_data_train).to_csv(f"difference_train_{model.__class__.__name__}_oe{args.one_each}_{date_string}.csv", index=False)
-            pd.DataFrame(diff_data_test).to_csv(f"difference_test_{model.__class__.__name__}_oe{args.one_each}_{date_string}.csv", index=False)
+            #pd.DataFrame(diff_data_train).to_csv(f"difference_train_{model.__class__.__name__}_oe{args.one_each}_{date_string}.csv", index=False, header=False)
+            pd.DataFrame(diff_data_test).to_csv(f"difference_test_{model.__class__.__name__}_oe{args.one_each}_{date_string}.csv", index=False, header=False)
 
         #Create confusion matrix per class for test set only
         if args.species_only:
@@ -942,7 +951,7 @@ def main():
             else:
                 patience -= 1
                 if patience == 0:
-                    #generate confusion matrix and evaluate at epoch 200
+                    #generate confusion matrix and evaluate at last epoch
             
                     print(f"EVAL@{epoch+1}")
                     perf_test, true_split_test, pred_split_test = evaluate_circuit(

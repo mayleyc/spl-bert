@@ -457,6 +457,10 @@ def parse_args():
         "--no-constraints",
         action="store_true"
     )
+    parser.add_argument(
+        "--me",
+        action="store_true"
+    )
     #Added no-train for test_cub.py
     parser.add_argument(
         "--no-train",

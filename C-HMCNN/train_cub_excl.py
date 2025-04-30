@@ -287,10 +287,7 @@ def main():
     output_dim = 128 #not the number of classes
 
     num_epochs = args.n_epochs
-    if args.me:
-        vars_list = ['beta', 'delta']
-    else:
-        vars_list = ['beta']
+ 
 
     if "cub" in args.dataset:
         if "mini" in args.dataset:
@@ -538,16 +535,14 @@ def main():
             alpha.vtree().save(str.encode('constraints/' + dataset_name + '.vtree'))
 
         # Create circuit object
-        cmpe = CircuitMPE('constraints/' + dataset_name + '.vtree', 'constraints/' + dataset_name + '.sdd', vars_list=vars_list)
+        cmpe = CircuitMPE('constraints/' + dataset_name + '.vtree', 'constraints/' + dataset_name + '.sdd')
 
         if args.S > 0:
             cmpe.overparameterize(S=args.S)
             print("Done overparameterizing")
 
         # Create gating function
-        gate_beta = DenseGatingFunction(cmpe.beta, gate_layers=[128] + [256]*args.gates + [num_of_features], num_reps=args.num_reps).to(device)
-        gate_delta = DenseGatingFunction(cmpe.delta, gate_layers=[num_of_features]*2, num_reps=args.num_reps).to(device)
-        gate = nn.Sequential(gate_beta, gate_delta)
+        gate = DenseGatingFunction(cmpe.beta, gate_layers=[128] + [256]*args.gates + [num_of_features], num_reps=args.num_reps).to(device)
 
         R = None
 
@@ -559,13 +554,11 @@ def main():
         vtree = Vtree(var_count = mat.shape[0], var_order=list(range(1, mat.shape[0] + 1)))
         alpha.save(str.encode('ancestry.sdd'))
         vtree.save(str.encode('ancestry.vtree'))
-        cmpe = CircuitMPE('ancestry.vtree', 'ancestry.sdd', vars_list=vars_list)
+        cmpe = CircuitMPE('ancestry.vtree', 'ancestry.sdd')
         cmpe.overparameterize()
 
         # Gating function
-        gate_beta = DenseGatingFunction(cmpe.beta, gate_layers=[num_of_features]).to(device) #changed 462 to 128. why 462?
-        gate_delta = DenseGatingFunction(cmpe.delta, gate_layers=[num_of_features]).to(device)
-        gate = nn.Sequential(gate_beta, gate_delta)
+        gate = DenseGatingFunction(cmpe.beta, gate_layers=[128]).to(device) #changed 462 to 128. why 462?
 
         R = None
 
@@ -803,8 +796,6 @@ def main():
             #MCLoss
                 # Use fully-factorized distribution via circuit
             output = model(x.float(), sigmoid=False)
-            print("output shape", output.shape)
-            quit()
             deltas = gate(output)
             cmpe.set_params(deltas)
             loss = cmpe.cross_entropy(labels, log_space=True).mean()

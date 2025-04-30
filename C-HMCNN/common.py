@@ -37,6 +37,9 @@ images_dir = "CUB/CUB_200_2011/images"
 weights_dir = "models"
 embeddings_dir = "embeddings"
 
+emb_model_name = "resnet50"
+pred_y_folder = "pred_y"
+
 
 def find_files_with_string(directory, search_string):
     return [f for f in Path(directory).iterdir() if search_string in f.name]
@@ -277,9 +280,7 @@ num_species = 200'''
 
 #split (2476, 373) tensor into columns by no. of orders, families, etc.
 def split_category(y): 
-    y_order, y_family, y_genus, y_species = torch.split(y, [num_orders, num_families, num_genera, num_species], dim=1)
-  
-    return [y_order, y_family, y_genus, y_species]
+    return torch.split(y, [num_orders, num_families, num_genera, num_species], dim=1)
 
 def split_category_species(y): 
     y_species = torch.split(y, num_species, dim=1)
@@ -472,6 +473,10 @@ def parse_args():
     )
     parser.add_argument(
         "--species-only",
+        action="store_true"
+    )
+    parser.add_argument(
+        "--separate",
         action="store_true"
     )
     parser.add_argument(

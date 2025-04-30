@@ -494,7 +494,7 @@ def main():
                alpha = alpha & beta
                alpha.ref()
                old_alpha.deref()
-
+            '''
             # Mutual exclusivity logic
             
             # applies to the last layer (last layer is most prone to violations)
@@ -519,6 +519,7 @@ def main():
                 alpha = alpha & beta
                 alpha.ref()
                 old_alpha.deref()
+                '''
 
             # Saving circuit & vtree to disk
             alpha.save(str.encode('constraints/' + dataset_name + '.sdd'))

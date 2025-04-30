@@ -332,7 +332,7 @@ def main():
 
     device = torch.device("cuda:" + str(args.device) if torch.cuda.is_available() else "cpu")
 
-    emb_model_name = "resnet50"
+    
 
     
     # Load the datasets
@@ -504,8 +504,6 @@ def main():
                 var_count=R.size(0),
                 auto_gc_and_minimize=True)
 
-            
-
             alpha = mgr.true()
             alpha.ref()
             for i in range(R.size(0)):
@@ -589,8 +587,8 @@ def main():
     pretrained = False
     #checkpoint_model = torch.load(best_file)
     #checkpoint_gate = torch.load(re.sub("model", "gate", str(best_file)))
-    checkpoint_model = torch.load("/mnt/cimec-storage6/users/nguyenanhthu.tran/intern25/spl/SPL/C-HMCNN/models/cub_others_Pretrain_Model_20250422-053938_256_ncFalse_patienceFalse_pretrained_model.pth")
-    checkpoint_gate = torch.load("/mnt/cimec-storage6/users/nguyenanhthu.tran/intern25/spl/SPL/C-HMCNN/models/cub_others_ConstrainedFFNNModel_20250405-000154_256_0.001_avgloss_gate.pth")
+    checkpoint_model = torch.load("/mnt/cimec-storage6/users/nguyenanhthu.tran/intern25/spl/SPL/C-HMCNN/models/model_a_no_constraints/cub_others_ConstrainedFFNNModel_20250414-122651_256_ncTrue_model.pth")
+    checkpoint_gate = torch.load("/mnt/cimec-storage6/users/nguyenanhthu.tran/intern25/spl/SPL/C-HMCNN/models/model_a_no_constraints/cub_others_ConstrainedFFNNModel_20250414-122651_256_ncTrue_gate.pth")
     if pretrained == True:
         full_model = checkpoint_model["model_state_dict"]
         backbone_state_dict = {k.replace('backbone.', ''):v for k, v in full_model.items() if k.startswith('backbone.')} # extract only the backbone states
@@ -613,6 +611,7 @@ def main():
     best_gate_path = None
     patience = 10
     model_save_folder = "models"
+    hierarchy_levels = ['order', 'family', 'genus', 'species']
     
     '''def evaluate(model):
         test_val_t = perf_counter()
@@ -680,80 +679,159 @@ def main():
 
             pred_y = pred_y.to('cpu')
             y = y.to('cpu')
+            num_correct = {level: 0 for level in hierarchy_levels}
             
             # compare label and prediction per example (y and pred_y are batches, shape (256, 373))
             for j in range(x.shape[0]):  
                 difference = (pred_y[j] - y[j]).cpu().numpy()
                 diff_data.append(difference)
-            
+
+            if args.separate:
+                pred_y_separate = split_category(pred_y) #returns tuple of tensors
+                y_separate = split_category(y)
+
             if args.species_only:
                 #species only: select last 200 columns
                 pred_y = pred_y[:, -200:]
                 y = y[:, -200:]
 
-            num_correct = (pred_y == y.byte()).all(dim=-1).sum()
+            if args.separate:
+                
+                # Initialize a dictionary to hold correct counts per level
 
-            if i == 0:
-                test_correct = num_correct
-                predicted_test = pred_y
-                y_test = y
+                #nll_batch = {level: cmpe.cross_entropy(y_part, log_space=True).mean() for level, y_part in zip(hierarchy_levels, y_separate)}
+
+                # Loop over each hierarchical level (order, family, genus, species)
+            
+                for j, level in enumerate(hierarchy_levels):
+                    # Extract predictions and labels for each level
+                    pred_level = pred_y_separate[j]
+                    label_level = y_separate[j]
+                    
+                    # Compare predictions and labels
+                    correct = (pred_level == label_level.byte()).all(dim=-1).sum().item()
+                    
+                    # Store the result in the corresponding list
+                    num_correct[level] += correct
+
+                if i == 0:
+                    test_correct = num_correct
+                    predicted_test = pred_y
+                    y_test = y
+                    #nll_levels = {level: val for level, val in nll_batch.items()}
+
+                else:
+                    test_correct = {level: test_correct[level] + num_correct[level] for level in hierarchy_levels}
+                    predicted_test = torch.cat((predicted_test, pred_y), dim=0)
+                    y_test = torch.cat((y_test, y), dim=0)
+                    #for level in nll_batch:
+                    #    nll_levels[level] += nll_batch[level]
+
+
+                dt = perf_counter() - test_val_t
+                y_test = y_test[:,data_split.to_eval]
+                predicted_test = predicted_test[:,data_split.to_eval]
+
+                accuracy_levels = {level: test_correct[level] / len(y_test) for level in hierarchy_levels}
+                nll = nll.detach().to("cpu").numpy() / (i+1)
+
+                if "cub" in args.dataset:
+                    #remove redundant dimension (all True)
+                    y_test_squeeze = y_test.squeeze(1)
+                    predicted_test_squeeze = predicted_test.squeeze(1)
+                                
+                    true_split = split_category(y_test_squeeze)
+                    pred_split = split_category(predicted_test_squeeze)
+
+                    # Ensure correct shape (1D numpy array) & convert to np tensor
+                    y_test = y_test.squeeze().cpu().numpy()
+                    predicted_test = predicted_test.squeeze().cpu().numpy()
+                
+                    
+                    #nll_levels = {level: nll_levels[level].detach().to("cpu").numpy() / (i+1) for level in hierarchy_levels}
+                    jaccard_levels = {level: jaccard_score(true, pred, average='micro') for level, true, pred in zip(hierarchy_levels, true_split, pred_split)}
+                    hamming_levels = {level: hamming_loss(true, pred) for level, true, pred in zip(hierarchy_levels, true_split, pred_split)}
+
+                    # Print evaluation metrics for each level
+                    print(f"Evaluation metrics on {prefix} \t {dt:.4f}")
+                    
+                    print('\t'.join([f"\n{level.capitalize()} - Correct: {test_correct[level]}, Accuracy: {accuracy_levels[level]}, "
+                            f"Hamming: {hamming_levels[level]}, Jaccard: {jaccard_levels[level]}, NLL: {nll}"
+                            for level in hierarchy_levels]))
+
+                    return {
+                    f"{prefix}/accuracy": (accuracy_levels["order"], accuracy_levels["family"], accuracy_levels["genus"], accuracy_levels["species"], epoch, dt),
+                    f"{prefix}/hamming": (hamming_levels["order"], hamming_levels["family"], hamming_levels["genus"], hamming_levels["species"], epoch, dt),
+                    f"{prefix}/jaccard": (jaccard_levels["order"], jaccard_levels["family"], jaccard_levels["genus"], jaccard_levels["species"], epoch, dt),
+                    f"{prefix}/nll": (nll, epoch, dt),
+                }, true_split, pred_split, predicted_test
+                    
+
             else:
-                test_correct += num_correct
-                predicted_test = torch.cat((predicted_test, pred_y), dim=0)
-                y_test = torch.cat((y_test, y), dim=0)
+                num_correct = (pred_y == y.byte()).all(dim=-1).sum()
+
+                if i == 0:
+                    test_correct = num_correct
+                    predicted_test = pred_y
+                    y_test = y
+                else:
+                    test_correct += num_correct
+                    predicted_test = torch.cat((predicted_test, pred_y), dim=0)
+                    y_test = torch.cat((y_test, y), dim=0)
                 
 
-        dt = perf_counter() - test_val_t
-        y_test = y_test[:,data_split.to_eval]
-        predicted_test = predicted_test[:,data_split.to_eval]
-        
+                dt = perf_counter() - test_val_t
+                y_test = y_test[:,data_split.to_eval]
+                predicted_test = predicted_test[:,data_split.to_eval]
+                
 
-        accuracy = test_correct / len(y_test)
-        nll = nll.detach().to("cpu").numpy() / (i+1)
+                accuracy = test_correct / len(y_test)
+                nll = nll.detach().to("cpu").numpy() / (i+1)
 
-        assert y_test.shape == predicted_test.shape, "Mismatch between y and y_pred lengths!"
-        
-        if "cub" in args.dataset:
-            #remove redundant dimension (all True)
-            y_test_squeeze = y_test.squeeze(1)
-            predicted_test_squeeze = predicted_test.squeeze(1)
+                assert y_test.shape == predicted_test.shape, "Mismatch between y and y_pred lengths!"
+                
+                if "cub" in args.dataset:
+                    #remove redundant dimension (all True)
+                    y_test_squeeze = y_test.squeeze(1)
+                    predicted_test_squeeze = predicted_test.squeeze(1)
 
-        if args.species_only:
-            true_split = split_category_species(y_test_squeeze)
-            pred_split = split_category_species(predicted_test_squeeze)
-        else:
-            true_split = split_category(y_test_squeeze)
-            pred_split = split_category(predicted_test_squeeze)
+                if args.species_only:
+                    true_split = split_category_species(y_test_squeeze)
+                    pred_split = split_category_species(predicted_test_squeeze)
+                else:
+                    true_split = split_category(y_test_squeeze)
+                    pred_split = split_category(predicted_test_squeeze)
 
-        if "cub" in args.dataset:
-            # Ensure correct shape (1D numpy array)
-            y_test = y_test.squeeze()
-            predicted_test = predicted_test.squeeze()
-            # Convert to numpy (currently torch.int64)
-            y_test = y_test.cpu().numpy()
-            predicted_test = predicted_test.cpu().numpy()
+                if "cub" in args.dataset:
+                    # Ensure correct shape (1D numpy array)
+                    y_test = y_test.squeeze()
+                    predicted_test = predicted_test.squeeze()
+                    # Convert to numpy (currently torch.int64)
+                    y_test = y_test.cpu().numpy()
+                    predicted_test = predicted_test.cpu().numpy()
 
-        #print(f"Output: {predicted_test[:5]}")  # Print the first 5 model outputs
-        #print(f"True Labels: {y_test[:5]}")  # Print the first 5 true labels
+                #print(f"Output: {predicted_test[:5]}")  # Print the first 5 model outputs
+                #print(f"True Labels: {y_test[:5]}")  # Print the first 5 true labels
 
-        
-        jaccard = jaccard_score(y_test, predicted_test, average='micro')
-        hamming = hamming_loss(y_test, predicted_test)
+                
+                jaccard = jaccard_score(y_test, predicted_test, average='micro')
+                hamming = hamming_loss(y_test, predicted_test)
 
-        print(f"Evaluation metrics on {prefix} \t {dt:.4f}")
-        print(f"Num. correct: {test_correct}")
-        print(f"Accuracy: {accuracy}")
-        print(f"Hamming Loss: {hamming}")
-        print(f"Jaccard Score: {jaccard}")
-        print(f"nll: {nll}")
+                print(f"Evaluation metrics on {prefix} \t {dt:.4f}")
+                print(f"Num. correct: {test_correct}")
+                print(f"Accuracy: {accuracy}")
+                print(f"Hamming Loss: {hamming}")
+                print(f"Jaccard Score: {jaccard}")
+                print(f"nll: {nll}")
 
 
-        return {
-            f"{prefix}/accuracy": (accuracy, epoch, dt),
-            f"{prefix}/hamming": (hamming, epoch, dt),
-            f"{prefix}/jaccard": (jaccard, epoch, dt),
-            f"{prefix}/nll": (nll, epoch, dt),
-        }, true_split, pred_split
+                return {
+                        f"{prefix}/accuracy": (accuracy, epoch, dt),
+                        f"{prefix}/hamming": (hamming, epoch, dt),
+                        f"{prefix}/jaccard": (jaccard, epoch, dt),
+                        f"{prefix}/nll": (nll, epoch, dt),
+                    }, true_split, pred_split, predicted_test
+
     
     if "cub" in args.dataset:
         if args.one_each:
@@ -775,7 +853,7 @@ def main():
     if args.no_train:
         diff_data_train = []
         diff_data_test = []
-        perf_test, true_split_test, pred_split_test = evaluate_circuit(
+        perf_test, true_split_test, pred_split_test, predicted_test = evaluate_circuit(
             model,
             gate, 
             cmpe,
@@ -802,19 +880,45 @@ def main():
         # Merge dicts
         perf = {**perf_test} #, **perf_train}
         
-        # Export metrics
-        for perf_name, (score, epoch, dt) in perf.items():
-            writer.add_scalar(perf_name, score, global_step=epoch, walltime=dt)
+        if args.separate:
+            # Export metrics
+            for perf_name, tupl in perf.items():
+                if "nll" in perf_name:
+                    score, epoch, dt = tupl
+                    writer.add_scalar(perf_name, score, global_step=epoch, walltime=dt)
+                else:
+                    score_o, score_f, score_g, score_s, epoch, dt = tupl
+                    for level, score in zip(hierarchy_levels, [score_o, score_f, score_g, score_s]):
+                        writer.add_scalar(f"{perf_name}/{level}", score, global_step=epoch, walltime=dt)
+        else:
+            for perf_name, (score, epoch, dt) in perf.items():
+                writer.add_scalar(perf_name, score, global_step=epoch, walltime=dt)
+        
         writer.flush()
 
         # Save difference file for test and train sets
+        if args.exp_id:
+            cm_folder = f"./confusion_matrices/{date_string}_{args.exp_id}"
+            pred_y_folder = f"./pred_y/{date_string}_{args.exp_id}"
+            diff_folder = f"./diff/{date_string}_{args.exp_id}"
+
+        else:
+            cm_folder = f"./confusion_matrices/{date_string}"
+            pred_y_folder = f"./pred_y/{date_string}"
+            diff_folder = f"./diff/{date_string}"
+
+        os.makedirs(cm_folder, exist_ok=True)
+        os.makedirs(pred_y_folder, exist_ok=True)
+        os.makedirs(diff_folder, exist_ok=True)
 
         if args.exp_id:
             #pd.DataFrame(diff_data_train).to_csv(f"difference_train_{model.__class__.__name__}_oe{args.one_each}_{args.exp_id}_{date_string}.csv", index=False, header=False)
-            pd.DataFrame(diff_data_test).to_csv(f"difference_test_{model.__class__.__name__}_oe{args.one_each}_{args.exp_id}_{date_string}.csv", index=False, header=False)
+            pd.DataFrame(diff_data_test).to_csv(os.path.join(diff_folder, f"difference_test_{model.__class__.__name__}_oe{args.one_each}_{args.exp_id}_{date_string}.csv"), index=False, header=False)
+            pd.DataFrame(predicted_test).to_csv(os.path.join(pred_y_folder, f"predicted_test_{model.__class__.__name__}_oe{args.one_each}_{args.exp_id}_{date_string}.csv"), index=False, header=False)
         else:
             #pd.DataFrame(diff_data_train).to_csv(f"difference_train_{model.__class__.__name__}_oe{args.one_each}_{date_string}.csv", index=False, header=False)
-            pd.DataFrame(diff_data_test).to_csv(f"difference_test_{model.__class__.__name__}_oe{args.one_each}_{date_string}.csv", index=False, header=False)
+            pd.DataFrame(diff_data_test).to_csv(os.path.join(diff_folder, f"difference_test_{model.__class__.__name__}_oe{args.one_each}_{date_string}.csv"), index=False, header=False)
+            pd.DataFrame(predicted_test).to_csv(os.path.join(pred_y_folder, f"predicted_test_{model.__class__.__name__}_oe{args.one_each}_{date_string}.csv"), index=False, header=False)
 
         #Create confusion matrix per class for test set only
         if args.species_only:
@@ -822,7 +926,7 @@ def main():
             num_classes_per_level = [200]
             
         else:
-            matrix_names = ["order", "family", "genus", "species"]
+            matrix_names = hierarchy_levels
             num_classes_per_level = [13, 37, 123, 200]
         #
         cm_folder = f"./confusion_matrices/{date_string}_{args.exp_id}"
@@ -862,7 +966,7 @@ def main():
             if epoch % 5 == 0 and epoch != 0:
 
                 print(f"EVAL@{epoch}")
-                perf_test, true_split_test, pred_split_test = evaluate_circuit(
+                perf_test, true_split_test, pred_split_test, predicted_test = evaluate_circuit(
                         model,
                         gate, 
                         cmpe,

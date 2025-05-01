@@ -38,13 +38,19 @@ from common import *
 from torch.utils.data import Dataset
 from PIL import Image
 
-pred_y_file = os.path.join(pred_y_folder, "20250430-123720_250430_model-b_separate_2")
+import re
+import numpy as np
+import pandas as pd
+
+pred_y_file = os.path.join(pred_y_folder, "20250424-112958_250425_model-a/predicted_test_ConstrainedFFNNModel_oeFalse_250425_model-a_20250424-112958.csv")
 
 emb_file = find_latest_emb_file(emb_model_name, "cub_others")
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
+
+#Check for mutual exclusivity violations
 def count_me(predictions):
     # Select last 200 columns (species-level predictions)
     species_preds = predictions[:, -200:]
@@ -53,14 +59,14 @@ def count_me(predictions):
     species_counts = np.sum(species_preds, axis=1)
 
     # Identify rows with incorrect number of predictions
-    non_exclusive_rows = np.where(species_counts != 1)[0]
+    non_exclusive_rows = np.where(species_counts > 1)[0]
+    zero_rows = np.where(species_counts == 0)[0]
 
     # Count and optionally display some examples
-    return non_exclusive_rows
+    return non_exclusive_rows, zero_rows
 
 
-
-# Load and split dataset into train, val, and test sets
+# shouldn't use emb_file, instead get ohe_dict from the csv file
 with open(emb_file, "rb") as f:
     all_paths, all_embeddings, labels_unprocessed = pickle.load(f)
 label_species = [label.split('.')[-1] for label in labels_unprocessed]
@@ -74,7 +80,9 @@ def main():
 
     # Convert to NumPy array
     predictions = df.values
-    non_exclusive_rows = count_me(predictions)
+    non_exclusive_rows, zero_rows = count_me(predictions)
 
-    print(f"Total rows with ME violations: {len(non_exclusive_rows)}")
+    print(f"Total rows with ME violations: {len(non_exclusive_rows)}\nTotal rows with 0 species predicted: {len(zero_rows)}")
 
+if __name__ == "__main__":
+    main()

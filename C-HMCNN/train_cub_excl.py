@@ -662,14 +662,14 @@ def main():
 
             # Parameterize circuit using nn
             emb = model(x.float())
-            deltas = gate(emb)
+            thetas = gate(emb)
 
             # negative log likelihood and map = CE loss (output from circuit)
-            cmpe.set_params(deltas)
+            cmpe.set_params(thetas)
             nll = cmpe.cross_entropy(y, log_space=True).mean()
 
-            cmpe.set_params(deltas)
-            pred_y = cmpe.get_mpe_inst(x.shape[0])
+            cmpe.set_params(thetas)
+            pred_y = (cmpe.get_mpe_inst(x.shape[0]) > 0).long()
            
 
             pred_y = pred_y.to('cpu')
@@ -796,8 +796,8 @@ def main():
             #MCLoss
                 # Use fully-factorized distribution via circuit
             output = model(x.float(), sigmoid=False)
-            deltas = gate(output)
-            cmpe.set_params(deltas)
+            thetas = gate(output)
+            cmpe.set_params(thetas)
             loss = cmpe.cross_entropy(labels, log_space=True).mean()
 
             tot_loss += loss
@@ -850,7 +850,6 @@ def main():
         # Early stopping    
         else:
             patience -= 1
-            
             if patience == 0:
                 print("Patience ran out.")
                 break

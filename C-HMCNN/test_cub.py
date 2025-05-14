@@ -584,15 +584,16 @@ def main():
     #model = LeNet5(input_dims[data], hidden_dim, output_dim, hyperparams, R, args.dataset) #1% accuracy at 80 epochs
     #if args.no_train:
     best_file, best_loss = find_best_pth_file(model.__class__.__name__)
-    pretrained = False
+    pretrained = args.pretrained
     #checkpoint_model = torch.load(best_file)
     #checkpoint_gate = torch.load(re.sub("model", "gate", str(best_file)))
-    checkpoint_model = torch.load("/mnt/cimec-storage6/users/nguyenanhthu.tran/intern25/spl/SPL/C-HMCNN/models/model_a_no_constraints/cub_others_ConstrainedFFNNModel_20250414-122651_256_ncTrue_model.pth")
-    checkpoint_gate = torch.load("/mnt/cimec-storage6/users/nguyenanhthu.tran/intern25/spl/SPL/C-HMCNN/models/model_a_no_constraints/cub_others_ConstrainedFFNNModel_20250414-122651_256_ncTrue_gate.pth")
+    checkpoint_model = torch.load("models/20250513-210250_250508_model-c_model_finetuned.pth")
+    checkpoint_gate = torch.load("models/20250513-210250_250508_model-c_gate_finetuned.pth")
     if pretrained == True:
         full_model = checkpoint_model["model_state_dict"]
         backbone_state_dict = {k.replace('backbone.', ''):v for k, v in full_model.items() if k.startswith('backbone.')} # extract only the backbone states
         model.load_state_dict(backbone_state_dict, strict=True)
+        checkpoint_gate = torch.load("models/250508_model-b_gate.pth")
 
     else:
         model.load_state_dict(checkpoint_model["model_state_dict"], strict=True)
@@ -612,7 +613,8 @@ def main():
     patience = 10
     model_save_folder = "models"
     hierarchy_levels = ['order', 'family', 'genus', 'species']
-    
+
+
     '''def evaluate(model):
         test_val_t = perf_counter()
         for i, (x,y) in enumerate(test_loader):
@@ -657,7 +659,10 @@ def main():
     '''
     def evaluate_circuit(model, gate, cmpe, epoch, data_loader, data_split, prefix, diff_data):
         test_val_t = perf_counter()
-
+        if args.separate:
+            test_correct = {level: 0 for level in hierarchy_levels}
+        else:
+            test_correct = 0            
         for i, (x,y) in enumerate(data_loader):
 
             model.eval()
@@ -679,16 +684,11 @@ def main():
 
             pred_y = pred_y.to('cpu')
             y = y.to('cpu')
-            num_correct = {level: 0 for level in hierarchy_levels}
             
             # compare label and prediction per example (y and pred_y are batches, shape (256, 373))
             for j in range(x.shape[0]):  
-                difference = (pred_y[j] - y[j]).cpu().numpy()
+                difference = (pred_y[j] - y[j]).numpy()
                 diff_data.append(difference)
-
-            if args.separate:
-                pred_y_separate = split_category(pred_y) #returns tuple of tensors
-                y_separate = split_category(y)
 
             if args.species_only:
                 #species only: select last 200 columns
@@ -696,9 +696,10 @@ def main():
                 y = y[:, -200:]
 
             if args.separate:
-                
+                pred_y_separate = split_category(pred_y) #returns tuple of tensors
+                y_separate = split_category(y)
                 # Initialize a dictionary to hold correct counts per level
-
+                #num_correct = {level: 0 for level in hierarchy_levels}
                 #nll_batch = {level: cmpe.cross_entropy(y_part, log_space=True).mean() for level, y_part in zip(hierarchy_levels, y_separate)}
 
                 # Loop over each hierarchical level (order, family, genus, species)
@@ -712,61 +713,19 @@ def main():
                     correct = (pred_level == label_level.byte()).all(dim=-1).sum().item()
                     
                     # Store the result in the corresponding list
-                    num_correct[level] += correct
+                    test_correct[level] += correct
 
                 if i == 0:
-                    test_correct = num_correct
                     predicted_test = pred_y
                     y_test = y
                     #nll_levels = {level: val for level, val in nll_batch.items()}
 
                 else:
-                    test_correct = {level: test_correct[level] + num_correct[level] for level in hierarchy_levels}
+                    #test_correct = {level: test_correct[level] + num_correct[level] for level in hierarchy_levels}
                     predicted_test = torch.cat((predicted_test, pred_y), dim=0)
                     y_test = torch.cat((y_test, y), dim=0)
                     #for level in nll_batch:
-                    #    nll_levels[level] += nll_batch[level]
-
-
-                dt = perf_counter() - test_val_t
-                y_test = y_test[:,data_split.to_eval]
-                predicted_test = predicted_test[:,data_split.to_eval]
-
-                accuracy_levels = {level: test_correct[level] / len(y_test) for level in hierarchy_levels}
-                nll = nll.detach().to("cpu").numpy() / (i+1)
-
-                if "cub" in args.dataset:
-                    #remove redundant dimension (all True)
-                    y_test_squeeze = y_test.squeeze(1)
-                    predicted_test_squeeze = predicted_test.squeeze(1)
-                                
-                    true_split = split_category(y_test_squeeze)
-                    pred_split = split_category(predicted_test_squeeze)
-
-                    # Ensure correct shape (1D numpy array) & convert to np tensor
-                    y_test = y_test.squeeze().cpu().numpy()
-                    predicted_test = predicted_test.squeeze().cpu().numpy()
-                
-                    
-                    #nll_levels = {level: nll_levels[level].detach().to("cpu").numpy() / (i+1) for level in hierarchy_levels}
-                    jaccard_levels = {level: jaccard_score(true, pred, average='micro') for level, true, pred in zip(hierarchy_levels, true_split, pred_split)}
-                    hamming_levels = {level: hamming_loss(true, pred) for level, true, pred in zip(hierarchy_levels, true_split, pred_split)}
-
-                    # Print evaluation metrics for each level
-                    print(f"Evaluation metrics on {prefix} \t {dt:.4f}")
-                    
-                    print('\t'.join([f"\n{level.capitalize()} - Correct: {test_correct[level]}, Accuracy: {accuracy_levels[level]}, "
-                            f"Hamming: {hamming_levels[level]}, Jaccard: {jaccard_levels[level]}, NLL: {nll}"
-                            for level in hierarchy_levels]))
-
-                    return {
-                    f"{prefix}/accuracy": (accuracy_levels["order"], accuracy_levels["family"], accuracy_levels["genus"], accuracy_levels["species"], epoch, dt),
-                    f"{prefix}/hamming": (hamming_levels["order"], hamming_levels["family"], hamming_levels["genus"], hamming_levels["species"], epoch, dt),
-                    f"{prefix}/jaccard": (jaccard_levels["order"], jaccard_levels["family"], jaccard_levels["genus"], jaccard_levels["species"], epoch, dt),
-                    f"{prefix}/nll": (nll, epoch, dt),
-                }, true_split, pred_split, predicted_test
-                    
-
+            
             else:
                 num_correct = (pred_y == y.byte()).all(dim=-1).sum()
 
@@ -778,59 +737,103 @@ def main():
                     test_correct += num_correct
                     predicted_test = torch.cat((predicted_test, pred_y), dim=0)
                     y_test = torch.cat((y_test, y), dim=0)
+                        #    nll_levels[level] += nll_batch[level]
+        
+        dt = perf_counter() - test_val_t
+        y_test = y_test[:,data_split.to_eval]
+        predicted_test = predicted_test[:,data_split.to_eval]
+
+
+        if args.separate:
+            
+            accuracy_levels = {level: test_correct[level] / len(y_test) for level in hierarchy_levels}
+            nll = nll.detach().to("cpu").numpy() / (i+1)
+
+            if "cub" in args.dataset:
+                #remove redundant dimension (all True)
+                y_test_squeeze = y_test.squeeze(1)
+                predicted_test_squeeze = predicted_test.squeeze(1)
+                            
+                true_split = split_category(y_test_squeeze)
+                pred_split = split_category(predicted_test_squeeze)
+
+                # Ensure correct shape (1D numpy array) & convert to np tensor
+                y_test = y_test.squeeze().cpu().numpy()
+                predicted_test = predicted_test.squeeze().cpu().numpy()
+            
                 
+                #nll_levels = {level: nll_levels[level].detach().to("cpu").numpy() / (i+1) for level in hierarchy_levels}
+                jaccard_levels = {level: jaccard_score(true, pred, average='micro') for level, true, pred in zip(hierarchy_levels, true_split, pred_split)}
+                hamming_levels = {level: hamming_loss(true, pred) for level, true, pred in zip(hierarchy_levels, true_split, pred_split)}
 
-                dt = perf_counter() - test_val_t
-                y_test = y_test[:,data_split.to_eval]
-                predicted_test = predicted_test[:,data_split.to_eval]
-                
-
-                accuracy = test_correct / len(y_test)
-                nll = nll.detach().to("cpu").numpy() / (i+1)
-
-                assert y_test.shape == predicted_test.shape, "Mismatch between y and y_pred lengths!"
-                
-                if "cub" in args.dataset:
-                    #remove redundant dimension (all True)
-                    y_test_squeeze = y_test.squeeze(1)
-                    predicted_test_squeeze = predicted_test.squeeze(1)
-
-                if args.species_only:
-                    true_split = split_category_species(y_test_squeeze)
-                    pred_split = split_category_species(predicted_test_squeeze)
-                else:
-                    true_split = split_category(y_test_squeeze)
-                    pred_split = split_category(predicted_test_squeeze)
-
-                if "cub" in args.dataset:
-                    # Ensure correct shape (1D numpy array)
-                    y_test = y_test.squeeze()
-                    predicted_test = predicted_test.squeeze()
-                    # Convert to numpy (currently torch.int64)
-                    y_test = y_test.cpu().numpy()
-                    predicted_test = predicted_test.cpu().numpy()
-
-                #print(f"Output: {predicted_test[:5]}")  # Print the first 5 model outputs
-                #print(f"True Labels: {y_test[:5]}")  # Print the first 5 true labels
-
-                
-                jaccard = jaccard_score(y_test, predicted_test, average='micro')
-                hamming = hamming_loss(y_test, predicted_test)
-
+                # Print evaluation metrics for each level
                 print(f"Evaluation metrics on {prefix} \t {dt:.4f}")
-                print(f"Num. correct: {test_correct}")
-                print(f"Accuracy: {accuracy}")
-                print(f"Hamming Loss: {hamming}")
-                print(f"Jaccard Score: {jaccard}")
-                print(f"nll: {nll}")
-
+                #print(test_correct["genus"],  accuracy_levels["genus"], hamming_levels["genus"], jaccard_levels["genus"], nll)
+                
+                
+                print('\n'.join(
+                    [f"{level.capitalize()}\tCorrect: {test_correct[level]}\tAccuracy: {accuracy_levels[level]}"
+                    f"\tHamming: {hamming_levels[level]}\tJaccard: {jaccard_levels[level]}\tNLL: {nll}"
+                    for level in hierarchy_levels]
+                ))
 
                 return {
-                        f"{prefix}/accuracy": (accuracy, epoch, dt),
-                        f"{prefix}/hamming": (hamming, epoch, dt),
-                        f"{prefix}/jaccard": (jaccard, epoch, dt),
-                        f"{prefix}/nll": (nll, epoch, dt),
-                    }, true_split, pred_split, predicted_test
+                f"{prefix}/accuracy": (accuracy_levels["order"], accuracy_levels["family"], accuracy_levels["genus"], accuracy_levels["species"], epoch, dt),
+                f"{prefix}/hamming": (hamming_levels["order"], hamming_levels["family"], hamming_levels["genus"], hamming_levels["species"], epoch, dt),
+                f"{prefix}/jaccard": (jaccard_levels["order"], jaccard_levels["family"], jaccard_levels["genus"], jaccard_levels["species"], epoch, dt),
+                f"{prefix}/nll": (nll, epoch, dt),
+            }, true_split, pred_split, predicted_test
+            
+
+        else:
+            
+            
+            accuracy = test_correct / len(y_test)
+            nll = nll.detach().to("cpu").numpy() / (i+1)
+
+            assert y_test.shape == predicted_test.shape, "Mismatch between y and y_pred lengths!"
+            
+            if "cub" in args.dataset:
+                #remove redundant dimension (all True)
+                y_test_squeeze = y_test.squeeze(1)
+                predicted_test_squeeze = predicted_test.squeeze(1)
+
+            if args.species_only:
+                true_split = split_category_species(y_test_squeeze)
+                pred_split = split_category_species(predicted_test_squeeze)
+            else:
+                true_split = split_category(y_test_squeeze)
+                pred_split = split_category(predicted_test_squeeze)
+
+            if "cub" in args.dataset:
+                # Ensure correct shape (1D numpy array)
+                y_test = y_test.squeeze()
+                predicted_test = predicted_test.squeeze()
+                # Convert to numpy (currently torch.int64)
+                y_test = y_test.cpu().numpy()
+                predicted_test = predicted_test.cpu().numpy()
+
+            #print(f"Output: {predicted_test[:5]}")  # Print the first 5 model outputs
+            #print(f"True Labels: {y_test[:5]}")  # Print the first 5 true labels
+
+            
+            jaccard = jaccard_score(y_test, predicted_test, average='micro')
+            hamming = hamming_loss(y_test, predicted_test)
+
+            print(f"Evaluation metrics on {prefix} \t {dt:.4f}")
+            print(f"Num. correct: {test_correct}")
+            print(f"Accuracy: {accuracy}")
+            print(f"Hamming Loss: {hamming}")
+            print(f"Jaccard Score: {jaccard}")
+            print(f"nll: {nll}")
+
+
+            return {
+                    f"{prefix}/accuracy": (accuracy, epoch, dt),
+                    f"{prefix}/hamming": (hamming, epoch, dt),
+                    f"{prefix}/jaccard": (jaccard, epoch, dt),
+                    f"{prefix}/nll": (nll, epoch, dt),
+                }, true_split, pred_split, predicted_test
 
     
     if "cub" in args.dataset:
@@ -861,7 +864,7 @@ def main():
             data_loader=test_load,
             data_split=data_split_test,
             prefix="param_sdd/test",
-            diff_data=diff_data_test
+            diff_data=diff_data_test,
         )
 
         '''
@@ -945,7 +948,12 @@ def main():
             p = convert_ohe_to_1d(p)
 
             labels = list(range(num_classes))
-            matrix = confusion_matrix(t, p)
+            #print(f"Labels: {labels}") #correct
+            #print("Sample predictions:", p[:10])
+            #print("Sample targets:", t[:10])
+            #print("Unique predicted labels:", np.unique(p))
+            #print("Unique true labels:", np.unique(t)) #there exist -1 labels in predictions
+            matrix = confusion_matrix(t, p, labels=[-1] + labels)
             df = pd.DataFrame(matrix)
             plt.figure(figsize=(20, 16))  # optional: adjust size
             sns.heatmap(df, cmap = "crest", fmt="d", linewidths=0.5, linecolor='white')
@@ -974,7 +982,7 @@ def main():
                         data_loader=test_load,
                         data_split=data_split_test,
                         prefix="param_sdd/test",
-                        diff_data=diff_data_test
+                        diff_data=diff_data_test,
                     )
                 perf = {**perf_test}
 
@@ -1058,7 +1066,7 @@ def main():
                     #generate confusion matrix and evaluate at last epoch
             
                     print(f"EVAL@{epoch+1}")
-                    perf_test, true_split_test, pred_split_test = evaluate_circuit(
+                    perf_test, true_split_test, pred_split_test, predicted_test = evaluate_circuit(
                             model,
                             gate, 
                             cmpe,
@@ -1106,8 +1114,8 @@ def main():
                         t = convert_ohe_to_1d(t)
                         p = convert_ohe_to_1d(p)
 
-                        labels = list(range(num_classes))
-                        matrix = confusion_matrix(t, p)
+                        labels = [-1] + list(range(num_classes))
+                        matrix = confusion_matrix(t, p, labels=labels)
                         df = pd.DataFrame(matrix)
                         plt.figure(figsize=(20, 16))  # optional: adjust size
                         sns.heatmap(df, cmap = "crest", fmt="d", linewidths=0.5, linecolor='white')

@@ -42,7 +42,7 @@ import re
 import numpy as np
 import pandas as pd
 
-pred_y_file = os.path.join(pred_y_folder, "20250424-112958_250425_model-a/predicted_test_ConstrainedFFNNModel_oeFalse_250425_model-a_20250424-112958.csv")
+pred_y_file = "pred_y/20250514-150737_250508_model-d/predicted_test_ConstrainedFFNNModel_oeFalse_250508_model-d_20250514-150737.csv"
 
 emb_file = find_latest_emb_file(emb_model_name, "cub_others")
 
@@ -64,15 +64,21 @@ def count_me(predictions):
 
     # Count and optionally display some examples
     return non_exclusive_rows, zero_rows
+    
+def compare_hierarchy_violations(predictions, ohe_dict): #convert to tuples for hashability -> faster?
+    # Convert all values to tuples once and store in a set
+    allowed_set = {tuple(v) for v in ohe_dict.values()}
 
+    count = 0
+    for i in predictions:
+        i_tuple = tuple(i)  # Convert prediction to tuple
+        if i_tuple not in allowed_set:
+            count += 1
+    return count
 
-# shouldn't use emb_file, instead get ohe_dict from the csv file
-with open(emb_file, "rb") as f:
-    all_paths, all_embeddings, labels_unprocessed = pickle.load(f)
-label_species = [label.split('.')[-1] for label in labels_unprocessed]
-label_species = [re.sub('_', ' ', label) for label in label_species] # the species-level label for each image
+ohe_dict_from_csv, _ = get_one_hot_labels_all(csv_path_full)
 
-ohe_dict, _ = get_one_hot_labels(label_species, csv_path_full)
+#include ME violations as hierarchy violations
 
 
 def main(): 
@@ -82,7 +88,9 @@ def main():
     predictions = df.values
     non_exclusive_rows, zero_rows = count_me(predictions)
 
+    hv_count = compare_hierarchy_violations(predictions, ohe_dict_from_csv)
+    
     print(f"Total rows with ME violations: {len(non_exclusive_rows)}\nTotal rows with 0 species predicted: {len(zero_rows)}")
-
+    print(f"Total rows with hierarchy violations: {hv_count}")
 if __name__ == "__main__":
     main()

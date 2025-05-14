@@ -286,6 +286,7 @@ def main():
     output_dim = 128 #not the number of classes
 
     num_epochs = args.n_epochs
+ 
 
     if "cub" in args.dataset:
         if "mini" in args.dataset:
@@ -384,6 +385,11 @@ def main():
         
         ohe_dict, _ = get_one_hot_labels(label_species, csv_path)
         ohe_labels = [torch.from_numpy(ohe_dict[species]).to(device) for species in label_species]
+        '''
+        print(ohe_labels[0])
+        print(f'Labels: {torch.sum(ohe_labels[0])}')
+        quit()
+        '''
         all_embeddings_tensor = [torch.tensor(emb) for emb in all_embeddings]
         train_emb, temp_emb, train_labels, temp_labels = train_test_split(all_embeddings_tensor, ohe_labels, test_size=0.3, random_state=args.seed)
         val_emb, test_emb, val_labels, test_labels = train_test_split(temp_emb, temp_labels, test_size=0.7, random_state=args.seed)
@@ -494,12 +500,18 @@ def main():
                alpha = alpha & beta
                alpha.ref()
                old_alpha.deref()
+
             '''
-            # Mutual exclusivity logic
+                # Mutual exclusivity logic
             
             # applies to the last layer (last layer is most prone to violations)
             max_layer = max(layer_map.values())
             me_layers = {max_layer-1, max_layer}
+
+            #initialize delta for ME
+            delta = mgr.true()
+            delta.ref()
+
             for i in range(R.size(0)): #for all genera g
                 if layer_map[i] not in me_layers:
                     continue
@@ -510,16 +522,16 @@ def main():
                         s1 = species[idx1] 
                         s2 = species[idx2] 
 
-                        old_beta = beta
-                        beta = beta & (-mgr.vars[s1+1] | -mgr.vars[s2+1]) # sdd count starts at 1
-                        beta.ref()
-                        old_beta.deref()
+                        old_delta = delta
+                        delta = delta & (-mgr.vars[s1+1] | -mgr.vars[s2+1]) #one clause must be true # sdd count starts at 1
+                        delta.ref()
+                        old_delta.deref()
 
                 old_alpha = alpha
-                alpha = alpha & beta
+                alpha = alpha & delta
                 alpha.ref()
                 old_alpha.deref()
-                '''
+            '''
 
             # Saving circuit & vtree to disk
             alpha.save(str.encode('constraints/' + dataset_name + '.sdd'))
@@ -534,6 +546,7 @@ def main():
 
         # Create gating function
         gate = DenseGatingFunction(cmpe.beta, gate_layers=[128] + [256]*args.gates, num_reps=args.num_reps).to(device)
+
         R = None
 
 
@@ -549,6 +562,7 @@ def main():
 
         # Gating function
         gate = DenseGatingFunction(cmpe.beta, gate_layers=[128]).to(device) #changed 462 to 128. why 462?
+
         R = None
 
     # Define model, optimizer and loss
@@ -665,6 +679,11 @@ def main():
             #print(pred_y.shape)
             y = y.to('cpu')
             #print(y.shape)
+            #unique values in y
+            #y.unique(): tensor([0, 1])
+            #pred_y.unique(): tensor([0, 1])
+            #print("y.unique():", y.unique())
+            #print("pred_y.unique():", pred_y.unique())
 
             num_correct = (pred_y == y.byte()).all(dim=-1).sum()
             
@@ -699,6 +718,11 @@ def main():
             # Convert to numpy (currently torch.int64)
             y_test = y_test.cpu().numpy()
             predicted_test = predicted_test.cpu().numpy()
+
+        '''print(f"y_test.shape, predicted_test.shape: {y_test.shape}, {predicted_test.shape}")
+        print("y_test unique:", np.unique(y_test))
+        print("predicted_test unique:", np.unique(predicted_test))
+        quit()'''
 
         jaccard = jaccard_score(y_test, predicted_test, average='micro')
         hamming = hamming_loss(y_test, predicted_test)
@@ -785,6 +809,8 @@ def main():
             #MCLoss
                 # Use fully-factorized distribution via circuit
             output = model(x.float(), sigmoid=False)
+            #print("output shape", output.shape)
+            #print("output.unique()", output.unique())
             thetas = gate(output)
             cmpe.set_params(thetas)
             loss = cmpe.cross_entropy(labels, log_space=True).mean()

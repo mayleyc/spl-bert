@@ -386,6 +386,11 @@ def main():
         
         ohe_dict, _ = get_one_hot_labels(label_species, csv_path)
         ohe_labels = [torch.from_numpy(ohe_dict[species]).to(device) for species in label_species]
+        '''
+        print(ohe_labels[0])
+        print(f'Labels: {torch.sum(ohe_labels[0])}')
+        quit()
+        '''
         all_embeddings_tensor = [torch.tensor(emb) for emb in all_embeddings]
         train_emb, temp_emb, train_labels, temp_labels = train_test_split(all_embeddings_tensor, ohe_labels, test_size=0.3, random_state=args.seed)
         val_emb, test_emb, val_labels, test_labels = train_test_split(temp_emb, temp_labels, test_size=0.7, random_state=args.seed)
@@ -445,15 +450,12 @@ def main():
     else:
         mat = train.A
 
-    num_of_features = mat.shape[0] #373
-
-
     # Prepare circuit: TODO needs cleaning
     if not args.no_constraints:
         #print(mat.shape) #500x500 classes
         #print(np.array(train_labels).shape)
         
-        if not os.path.isfile('constraints/' + dataset_name + '.sdd') or not os.path.isfile('constraints/' + dataset_name + '.vtree'):
+        if not os.path.isfile('constraints/' + dataset_name + '_excl' + '.sdd') or not os.path.isfile('constraints/' + dataset_name + '_excl' + '.vtree'):
             # Compute matrix of ancestors R
             # Given n classes, R is an (n x n) matrix where R_ij = 1 if class i is ancestor of class j
             #np.savetxt("foo.csv", mat, delimiter=",") #Check mat
@@ -513,36 +515,34 @@ def main():
             for i in range(R.size(0)): #for all genera g
                 if layer_map[i] not in me_layers:
                     continue
-                species = [j for j in range(R.size(0)) if R[i][j] and i != j] # for all species under g
+                #make a list of indices of all species under g
+                species = [j for j in range(R.size(0)) if R[i][j] and i != j]
 
                 for idx1 in range(len(species)):
                     for idx2 in range(idx1 + 1, len(species)): # all species after s1
-                        s1 = species[idx1] 
-                        s2 = species[idx2] 
 
                         old_delta = delta
-                        delta = delta & (-mgr.vars[s1+1] | -mgr.vars[s2+1]) #one clause must be true # sdd count starts at 1
+                        delta = delta & (-mgr.vars[idx1+1] | -mgr.vars[idx2+1]) #one clause must be true # sdd count starts at 1
                         delta.ref()
                         old_delta.deref()
 
-                old_alpha = alpha
-                alpha = alpha & delta
-                alpha.ref()
-                old_alpha.deref()
+            old_alpha = alpha
+            alpha = alpha & delta
+            alpha.ref()
+            old_alpha.deref()
 
-            # Saving circuit & vtree to disk
-            alpha.save(str.encode('constraints/' + dataset_name + '.sdd'))
-            alpha.vtree().save(str.encode('constraints/' + dataset_name + '.vtree'))
+            alpha.save(str.encode('constraints/' + dataset_name + '_excl'+ '.sdd'))
+            alpha.vtree().save(str.encode('constraints/' + dataset_name + '_excl'+ '.vtree'))
 
         # Create circuit object
-        cmpe = CircuitMPE('constraints/' + dataset_name + '.vtree', 'constraints/' + dataset_name + '.sdd')
+        cmpe = CircuitMPE('constraints/' + dataset_name + '_excl'+ '.vtree', 'constraints/' + dataset_name + '_excl'+ '.sdd')
 
         if args.S > 0:
             cmpe.overparameterize(S=args.S)
             print("Done overparameterizing")
 
         # Create gating function
-        gate = DenseGatingFunction(cmpe.beta, gate_layers=[128] + [256]*args.gates + [num_of_features], num_reps=args.num_reps).to(device)
+        gate = DenseGatingFunction(cmpe.beta, gate_layers=[128] + [256]*args.gates, num_reps=args.num_reps).to(device)
 
         R = None
 

@@ -238,32 +238,152 @@ def get_one_hot_labels(label_species: list, csv_path: str):
     label_dict = {}
     df = pd.read_csv(csv_path)
     # Locate label by species in csv file
-    for i in label_species:
+    for species in label_species:
         labels = []
-        row_idx, _ = np.where(df == i)
+        row_idx, _ = np.where(df == species)
         labels = df.loc[row_idx, df.columns[-4:]]
-        label_dict[i] = labels.values.tolist()[0] # converts to list and remove the outer list
+        label_dict[species] = labels.values.tolist()[0] # converts to list and remove the outer list
     #print(f"Length of label_dict: {len(label_dict)}") #200
     # Convert label_dict to tensors    
-    unique_values = []
+    '''unique_values = {column_name.lower(): [] for column_name in df.columns[-4:]}  # Initialize unique values for each column
     for column_name in df.columns[-4:]:  # Focus on last 4 columns, from left to right
         uv_col_list = df[column_name].dropna().unique().tolist()  # Extract unique values
-        unique_values += uv_col_list
+        unique_values[column_name.lower()] = uv_col_list'''
+    unique_values = {column_name.lower(): df[column_name].dropna().unique().tolist() for column_name in df.columns[-4:]}
     # transform it into an index map for faster lookup
-    unique_val_map = {value:idx for idx, value in enumerate(unique_values)}
+    unique_val_map = sum(unique_values.values(), []) #list of all unique values
+    #{idx: value for idx, value in enumerate(sum(unique_values.values(), []))}
+    #print(f"Length of unique values: {len(unique_val_map)}") #373
+    # Check if any of the values in unique_val_map are equal to 0
+   
     #print(f"Length of unique values: {len(unique_values)}")
     # from label_dict, create one-hot encoding for each label
     ohe_dict = {}
-    for i in label_dict:
-        for j in label_dict[i]:
+
+    # Automatically compute cumulative offsets
+    offset = 0
+    level_offsets = {}
+    for level in unique_values:
+        level_offsets[level] = offset
+        offset += len(unique_values[level])
+
+    # Now for each species
+    for species, labels_by_level in label_dict.items():
+        array = np.zeros(len(unique_val_map), dtype=int)
+        for i, level in enumerate(unique_values):  # assumes order: order, family, genus, species
+            label = labels_by_level[i]
+            try:
+                local_idx = unique_values[level].index(label)
+                global_idx = level_offsets[level] + local_idx
+                array[global_idx] += 1
+            except ValueError:
+                print(f"Label '{label}' not found in level '{level}'")
+        ohe_dict[species] = array
+        assert array.max() <= 1, f"Non-binary label detected for species {species}"
+        assert array.sum() == 4, f"Expected 4 labels, got {array.sum()} for species {species}"
+
+
+
+        '''
+        for species in label_dict:
             array = np.zeros(len(unique_values), dtype=int)
-            idx = unique_val_map.get(j)
+            label_traversed = [False] * len(label_dict[species])  # To track if each label has been counted
+            labels_by_level = label_dict[species]
+
+        idx_order = unique_val_map[:13].index(labels_by_level[0])
+        idx_family = unique_val_map[13:50].index(labels_by_level[1])
+        idx_genus = unique_val_map[50:173].index(labels_by_level[2])
+        idx_species = unique_val_map[:-200].index(labels_by_level[3])
+        
+        if idx is not None:
+                array[idx] += 1
+
+        if label_dict[species][-1] in unique_values["species"]:
+        for level_label in label_dict[species]:
+            idx = unique_values["species"].index(level_label)
+            label_dict[species]
             if idx is not None:
                 array[idx] += 1
-        ohe_dict[i] = array
+        ohe_dict[species] = array'''
+
 
     assert all(len(v) == 373 for v in ohe_dict.values()), "Mismatch in one-hot vector length!" # 373 or len(unique_values) 
+    
+    return ohe_dict, unique_val_map
 
+def get_one_hot_labels_all(csv_path: str):
+    label_dict = {}
+    df = pd.read_csv(csv_path)
+    # Locate label by species in csv file
+    for species in df["Species"]:
+        labels = df.loc[df["Species"] == species, df.columns[-4:]]
+        label_dict[species] = labels.values.tolist()[0] # converts to list and remove the outer list
+    #print(f"Length of label_dict: {len(label_dict)}") #200
+    # Convert label_dict to tensors    
+    '''unique_values = {column_name.lower(): [] for column_name in df.columns[-4:]}  # Initialize unique values for each column
+    for column_name in df.columns[-4:]:  # Focus on last 4 columns, from left to right
+        uv_col_list = df[column_name].dropna().unique().tolist()  # Extract unique values
+        unique_values[column_name.lower()] = uv_col_list'''
+    unique_values = {column_name.lower(): df[column_name].dropna().unique().tolist() for column_name in df.columns[-4:]}
+    # transform it into an index map for faster lookup
+    unique_val_map = sum(unique_values.values(), []) #list of all unique values
+    #{idx: value for idx, value in enumerate(sum(unique_values.values(), []))}
+    #print(f"Length of unique values: {len(unique_val_map)}") #373
+    # Check if any of the values in unique_val_map are equal to 0
+   
+    #print(f"Length of unique values: {len(unique_values)}")
+    # from label_dict, create one-hot encoding for each label
+    ohe_dict = {}
+
+    # Automatically compute cumulative offsets
+    offset = 0
+    level_offsets = {}
+    for level in unique_values:
+        level_offsets[level] = offset
+        offset += len(unique_values[level])
+
+    # Now for each species
+    for species, labels_by_level in label_dict.items():
+        array = np.zeros(len(unique_val_map), dtype=int)
+        for i, level in enumerate(unique_values):  # assumes order: order, family, genus, species
+            label = labels_by_level[i]
+            try:
+                local_idx = unique_values[level].index(label)
+                global_idx = level_offsets[level] + local_idx
+                array[global_idx] += 1
+            except ValueError:
+                print(f"Label '{label}' not found in level '{level}'")
+        ohe_dict[species] = array
+        assert array.max() <= 1, f"Non-binary label detected for species {species}"
+        assert array.sum() == 4, f"Expected 4 labels, got {array.sum()} for species {species}"
+
+
+
+        '''
+        for species in label_dict:
+            array = np.zeros(len(unique_values), dtype=int)
+            label_traversed = [False] * len(label_dict[species])  # To track if each label has been counted
+            labels_by_level = label_dict[species]
+
+        idx_order = unique_val_map[:13].index(labels_by_level[0])
+        idx_family = unique_val_map[13:50].index(labels_by_level[1])
+        idx_genus = unique_val_map[50:173].index(labels_by_level[2])
+        idx_species = unique_val_map[:-200].index(labels_by_level[3])
+        
+        if idx is not None:
+                array[idx] += 1
+
+        if label_dict[species][-1] in unique_values["species"]:
+        for level_label in label_dict[species]:
+            idx = unique_values["species"].index(level_label)
+            label_dict[species]
+            if idx is not None:
+                array[idx] += 1
+        ohe_dict[species] = array'''
+
+
+    assert all(len(v) == 373 for v in ohe_dict.values()), "Mismatch in one-hot vector length!" # 373 or len(unique_values) 
+    
     return ohe_dict, unique_val_map
 
 # Define the number of unique categories at each level # Total of CUB: 373 at the depth of 4
@@ -477,6 +597,10 @@ def parse_args():
     )
     parser.add_argument(
         "--separate",
+        action="store_true"
+    )
+    parser.add_argument(
+        "--pretrained",
         action="store_true"
     )
     parser.add_argument(

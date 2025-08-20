@@ -31,13 +31,16 @@ from cutils import datasets
 
 csv_path_full = "CUB/bird_info.csv"
 csv_path_mini = "CUB/bird_info_mini.csv"
-mat_path_full = "cub_matrix.npy"
+mat_path_dict = {"amazon":"amazon_tax_matrix.npy", 
+                 "bgc":"bgc_tax_matrix.npy", 
+                 "wos":"wos_tax_matrix.npy"}
 mat_path_mini = "cub_matrix_mini.npy"
-images_dir = "CUB/CUB_200_2011/images"
+#images_dir = "CUB/CUB_200_2011/images"
 weights_dir = "models"
 embeddings_dir = "embeddings"
+ohe_csv = "amazon_tax_one_hot.csv"
 
-emb_model_name = "resnet50"
+emb_model_name = "bert-base-uncased"
 pred_y_folder = "pred_y"
 
 
@@ -100,6 +103,9 @@ input_dims = {
     "seq": 529,
     "spo": 86,
     "cub": 1000, #length of resnet50 emb
+    "amazon": 2304, #length of bert emb
+    "bgc": 2304,
+    "wos": 2304,
 }
 
 output_dims_FUN = {
@@ -130,7 +136,7 @@ output_dims_others = {
     "imclef07a": 96,
     "imclef07d": 46,
     "reuters": 102,
-    "cub": 5, #200
+    "cub": 128, #200
 }
 
 output_dims = {
@@ -388,22 +394,35 @@ def get_one_hot_labels_all(csv_path: str):
 
 # Define the number of unique categories at each level # Total of CUB: 373 at the depth of 4
 
-num_orders = 13
-num_families = 37
-num_genera = 123
-num_species = 200
+hierarchy_num = {
+    "amazon": [5, 25],
+    "bgc": [7, 19, 120],
+    "wos": [7, 138],
+    "cub": [13, 37, 123, 200]
+}
 
+hierarchy_levels = {
+                    "bgc": ['l1','l2','l3'],
+                    "amazon": ['l1','l2'],
+                    "wos": ['l1','l2'],
+                    "cub":['l1','l2','l3','l4']
+                    }
 '''num_orders = 0
 num_families = 0
 num_genera = 0
 num_species = 200'''
 
 #split (2476, 373) tensor into columns by no. of orders, families, etc.
-def split_category(y): 
-    return torch.split(y, [num_orders, num_families, num_genera, num_species], dim=1)
+def split_category(y, data): 
+    '''
+    Input:
+    y: torch tensor
+    data: the dataset variable "data"
+    '''
+    return torch.split(y, hierarchy_num[data], dim=1)
 
-def split_category_species(y): 
-    y_species = torch.split(y, num_species, dim=1)
+def split_category_species(y, data): 
+    y_species = torch.split(y, hierarchy_num[data][-1], dim=1)
   
     return y_species
 
@@ -546,7 +565,7 @@ def parse_args():
     parser.add_argument(
         "--lr",
         type=float,
-        default=1e-4,
+        default=1e-4, #used to be 1e-5
         help="Learning rate"
     )
     parser.add_argument(

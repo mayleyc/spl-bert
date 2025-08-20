@@ -1,0 +1,17 @@
+{
+  "bgc": {
+    "test": "embeddings/emb_bert-base-uncased_bgc_20250812-101940_test_batch0.pickle",
+    "val": "embeddings/emb_bert-base-uncased_bgc_20250812-102243_val_batch0.pickle",
+    "train": "embeddings/emb_bert-base-uncased_bgc_20250812-101532_train_batch0.pickle"
+  },
+  "amazon": {
+    "test": "embeddings/emb_bert-base-uncased_amazon_20250812-094411_test_batch0.pickle",
+    "train": "embeddings/emb_bert-base-uncased_amazon_20250812-085636_train_batch0.pickle",
+    "val": "embeddings/emb_bert-base-uncased_amazon_20250812-100250_val_batch0.pickle"
+  },
+  "wos": {
+    "test": "embeddings/emb_bert-base-uncased_wos_20250812-103311_test_batch0.pickle",
+    "train": "embeddings/emb_bert-base-uncased_wos_20250812-102911_train_batch0.pickle",
+    "val": "embeddings/emb_bert-base-uncased_wos_20250812-103438_val_batch0.pickle"
+  }
+}

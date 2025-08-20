@@ -8,13 +8,12 @@ import glob
 
 import torch
 import torch.nn as nn
+
+
 from torch.utils.tensorboard import SummaryWriter
-from collections import defaultdict
 from sklearn.metrics import confusion_matrix
 import seaborn as sns
 from matplotlib import pyplot as plt
-
-from sklearn.model_selection import train_test_split
 
 from sklearn.metrics import (
     precision_score, 
@@ -22,6 +21,11 @@ from sklearn.metrics import (
     hamming_loss, 
     jaccard_score
 )
+from sklearn.model_selection import train_test_split
+
+import json
+from timeit import default_timer as timer
+
 
 # Circuit imports
 import sys
@@ -32,18 +36,22 @@ from GatingFunction import DenseGatingFunction
 from compute_mpe import CircuitMPE
 from pysdd.sdd import SddManager, Vtree
 
+from sklearn import preprocessing
+
+
 # misc
 from common import *
 
-from torch.utils.data import Dataset
-from PIL import Image
 
 def log1mexp(x):
         assert(torch.all(x >= 0))
         return torch.where(x < 0.6931471805599453094, torch.log(-torch.expm1(-x)), torch.log1p(-torch.exp(-x)))
 
-'''
-class CUB_Dataset(Dataset):
+from torch.utils.data import Dataset
+from PIL import Image
+
+#Functions for 
+'''class CUB_Dataset(Dataset):
     def __init__(self, image_paths, labels, transform = None, to_eval = True):
         """
         Args:
@@ -106,8 +114,8 @@ class CUB_Dataset(Dataset):
         _, image, _ = self.process_image(img_path)
 
         return image, label_set
-        '''
-class CUB_Dataset_Embeddings(Dataset):
+'''   
+class Embeddings_Dataset(Dataset):
     def __init__(self, embeddings, labels, to_eval = True):
         self.embeddings = embeddings
         self.labels = labels
@@ -127,32 +135,7 @@ class CUB_Dataset_Embeddings(Dataset):
         label = self.labels[idx]
 
         return emb, label
-    
-# custom dataset for one example per class
-# Input: a dataset built from CUB_Dataset_Embeddings, e.g. train_dataset
-# Output: the same train_dataset but reduced to 1 example per class
-class OEDataset(Dataset):
-    def __init__(self, dataset, to_eval = True):
-        self.dataset = dataset
-        self.class_examples = self._get_oe()
-        self.to_eval = to_eval
-    #for internal use (func inside class)
-    def _get_oe(self):
-        class_examples = defaultdict(list)
-        for i, (x, y) in enumerate(self.dataset):
-            class_examples[tuple(y.tolist())].append((x,y)) #fetch all (x, y) tuples by y
-        
-        selected_examples = []
-        for class_id, examples in class_examples.items():
-            selected_examples.append(examples[0]) #select the first, else replace with random.choice(examples)
 
-        return selected_examples
-    
-    def __len__(self):
-        return len(self.class_examples)
-
-    def __getitem__(self, idx):
-        return self.class_examples[idx]
 
 class ConstrainedFFNNModel(nn.Module):
     """ C-HMCNN(h) model - during training it returns the not-constrained output that is then passed to MCLoss """
@@ -294,34 +277,37 @@ class LeNet5(nn.Module):
                 constrained_out = get_constr_out(x, self.R)
             return constrained_out
     
+
 def main():
 
     args = parse_args()
 
     # Set device
     torch.cuda.set_device(int(args.device))
+    #print(torch.cuda.is_available())  # Should print True
+    #print(torch.cuda.device_count())  # Should match the number of GPUs
+    #print(torch.cuda.get_device_name(0))  # Check which GPU PyTorch is using
 
     # Load train, val and test set
     dataset_name = args.dataset
     data = dataset_name.split('_')[0]
-    ontology = dataset_name.split('_')[1]
-    hidden_dim = hidden_dims[ontology][data]
+    spl_bert_datasets = {}
+    #ontology = dataset_name.split('_')[1]
+    hidden_dim = 1000 #hidden_dims[ontology][data]
     output_dim = 128 #not the number of classes
 
     num_epochs = args.n_epochs
+    
+    with open("embeddings_config.json") as f:
+        emb_fp = json.load(f)
 
-    if "cub" in args.dataset:
-        if "mini" in args.dataset:
-            mat_path = mat_path_mini
-            csv_path = csv_path_mini
-        else:
-            mat_path = mat_path_full
-            csv_path = csv_path_full
+    #mat_path = mat_path_full
+    #csv_path = csv_path_full
 
     # Set the hyperparameters 
     hyperparams = {
         'num_layers': 3,
-        'dropout': 0.7,
+        'dropout': 0.2, #0.7
         'non_lin': 'relu',
     }
 
@@ -332,12 +318,8 @@ def main():
 
     device = torch.device("cuda:" + str(args.device) if torch.cuda.is_available() else "cpu")
 
+    emb_model_name = "bert-base-uncased"
     
-
-    
-    # Load the datasets
-    import glob
-    from sklearn import preprocessing
     '''
     # list of files in cub 2011 and y labels
     if "cub" in args.dataset:
@@ -345,6 +327,7 @@ def main():
         # Get all class folder names
         all_classes = sorted(os.listdir(images_dir))  # Sorting ensures consistency
         
+        # To use the CUB mini dataset, enter the dataset as cub_mini. For full CUB, use cub_others
         if "mini" in args.dataset:
         # Select all classes or only the first 5 classes (mini csv, mat and image set)
             selected_classes = all_classes[:5]
@@ -355,7 +338,6 @@ def main():
             csv_path = csv_path_full
             mat_path = mat_path_full
 
-        # getting 1 example from each class
         # Get image paths only for selected classes
         image_paths = []
         for cls in selected_classes:
@@ -367,9 +349,24 @@ def main():
         label_species = [re.sub('_', ' ', label) for label in label_species] # the species-level label for each image
         # Create one-hot encoding based on species lookup in the csv
         ohe_dict, unique_val_map = get_one_hot_labels(label_species, csv_path)
-
-    
-    #print(ohe_dict)
+        
+        # Create labels for trials
+        ohe_dict_50 = {}
+        for index, i in enumerate(ohe_dict.keys()):
+            if index < len(ohe_dict)/2:
+                ohe_dict_50[i] = np.zeros(ohe_dict[i].shape)
+            else:
+                ohe_dict_50[i] = ohe_dict[i]
+        
+        ohe_dict_0 = {}
+        for i in ohe_dict.keys():
+            ohe_dict_0[i] = np.zeros(ohe_dict[i].shape)
+        ohe_dict_1 = {}
+        for i in ohe_dict.keys():
+            ohe_dict_1[i] = np.ones(ohe_dict[i].shape)
+       
+        
+        #print(ohe_dict)
         #image_labels = [torch.from_numpy(ohe_dict[species]).to(device) for species in label_species]
         image_labels = [torch.from_numpy(ohe_dict[species]).to(device) for species in label_species]
         
@@ -382,29 +379,77 @@ def main():
                     T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
                 ]
             )
-            
+            '''
     
-    if "cub" in args.dataset:    
-        # Split dataset into train, val, and test sets
-        train_paths, temp_paths, train_labels, temp_labels = train_test_split(image_paths, image_labels, test_size=0.3, random_state=args.seed)
-        val_paths, test_paths, val_labels, test_labels = train_test_split(temp_paths, temp_labels, test_size=0.7, random_state=args.seed)
-    ''' 
-    if "cub" in args.dataset:    
+    if data in {"amazon", "bgc", "wos"}:  
         # load pickle at /embeddings
-        emb_file = find_latest_emb_file(emb_model_name, dataset_name)
-
-        # Load and split dataset into train, val, and test sets
-        with open(emb_file, "rb") as f:
-            all_paths, all_embeddings, labels_unprocessed = pickle.load(f)
-        label_species = [label.split('.')[-1] for label in labels_unprocessed]
-        label_species = [re.sub('_', ' ', label) for label in label_species] # the species-level label for each image
+        #emb_file = find_latest_emb_file(emb_model_name, dataset_name)
+        train_emb_file = emb_fp[data]["train"]
+        test_emb_file = emb_fp[data]["test"]
+        val_emb_file = emb_fp[data]["val"]
         
-        ohe_dict, _ = get_one_hot_labels(label_species, csv_path)
-        ohe_labels = [torch.from_numpy(ohe_dict[species]).to(device) for species in label_species]
-        all_embeddings_tensor = [torch.tensor(emb) for emb in all_embeddings]
-        train_emb, temp_emb, train_labels, temp_labels = train_test_split(all_embeddings_tensor, ohe_labels, test_size=0.3, random_state=args.seed)
-        val_emb, test_emb, val_labels, test_labels = train_test_split(temp_emb, temp_labels, test_size=0.7, random_state=args.seed)
-      
+        all_embeddings = {}
+        all_labels = {}
+        all_texts = {}
+
+        dataset_files = {
+                        'train': train_emb_file,
+                        'val': val_emb_file,
+                        'test': test_emb_file
+                        }
+        
+        #ohe_df = pd.read_csv(ohe_csv, index_col=0).astype(int)
+
+        for split, emb_file in dataset_files.items():
+            with open(emb_file, "rb") as f:
+                texts, emb_list, ohe_labels = pickle.load(f)
+            
+            #label_species = [label[-1] for label in labels_unprocessed]
+            
+            #ohe_labels = [torch.from_numpy(ohe_df[species]).to(device) for species in label_species]
+            
+            #Normalize tensors
+            emb_tensors = [
+                                nn.functional.normalize(torch.tensor(embe, dtype=torch.float32, device=device), p=2.0, dim=-1, eps=1e-12)
+                                for embe in emb_list
+                                ]
+            ohe_labels = [ohe.detach().clone() for ohe in ohe_labels]
+
+            all_embeddings[split] = emb_tensors
+            all_labels[split] = ohe_labels
+            all_texts[split] = texts
+        
+        #print(all_labels['train'][0])
+        #quit()
+
+
+        '''for i, emb_file in enumerate([train_emb_file, val_emb_file, test_emb_file]):
+        # Load and split dataset into train, val, and test sets
+            with open(emb_file, "rb") as f:
+                texts, embeddings, labels_unprocessed = pickle.load(f)
+            label_species = [label[-1] for label in labels_unprocessed]
+            #label_species = [re.sub('_', ' ', label) for label in label_species] # the species-level label for each image
+            
+            #ohe_dict, _ = get_one_hot_labels(label_species, csv_path)
+            ohe_labels = [torch.from_numpy(ohe_df[species]).to(device) for species in label_species]
+            
+            embeddings_tensor = [torch.tensor(emb) for emb in embeddings]
+
+            if i in dataset_map:
+                data_split = dataset_map[i]
+                embeddings[data_split] = embeddings_tensor
+                labels[data_split] = ohe_labels
+
+            if i == 0: 
+                train_emb, train_labels = embeddings_tensor, ohe_labels
+            elif i == 1: # no validation set?
+                val_emb, val_labels = embeddings_tensor, ohe_labels
+            elif i == 2:
+                test_emb, test_labels = embeddings_tensor, ohe_labels'''
+        
+            #train_emb, temp_emb, train_labels, temp_labels = train_test_split(all_embeddings_tensor, ohe_labels, test_size=0.3, random_state=args.seed)
+            #val_emb, test_emb, val_labels, test_labels = train_test_split(temp_emb, temp_labels, test_size=0.7, random_state=args.seed)
+            
     elif ('others' in args.dataset):
         train, test = initialize_other_dataset(dataset_name, datasets)
         train.to_eval, test.to_eval = torch.tensor(train.to_eval, dtype=torch.bool),  torch.tensor(test.to_eval, dtype=torch.bool)
@@ -415,27 +460,16 @@ def main():
         #print(train.Y.shape)
 
         #Create loaders
-    '''
-    if "cub" in args.dataset:
+    if data in {"amazon", "bgc", "wos"}: 
         # Create datasets for each split: Change labels
-        train_dataset = CUB_Dataset(train_paths, train_labels, transform, to_eval = True)
-        val_dataset = CUB_Dataset(val_paths, val_labels, transform, to_eval = True)
-        test_dataset = CUB_Dataset(test_paths, test_labels, transform, to_eval = True)
-    '''
-    if "cub" in args.dataset:
-        # Create datasets for each split: Change labels
-        train_dataset = CUB_Dataset_Embeddings(train_emb, train_labels, to_eval = True)
-        val_dataset = CUB_Dataset_Embeddings(val_emb, val_labels, to_eval = True)
-        test_dataset = CUB_Dataset_Embeddings(test_emb, test_labels, to_eval = True)
+        train_dataset = Embeddings_Dataset(all_embeddings["train"], all_labels["train"], to_eval = True)
+        #val_dataset = Embeddings_Dataset(val_emb, val_labels, to_eval = True)
+        test_dataset = Embeddings_Dataset(all_embeddings["test"], all_labels["test"], to_eval = True)
+        val_dataset = Embeddings_Dataset(all_embeddings["val"], all_labels["val"], to_eval = True)
+
         # convert them into tensors: shape = output_dim + 1
         train_dataset.to_eval, val_dataset.to_eval, test_dataset.to_eval = torch.tensor(train_dataset.to_eval, dtype=torch.bool), torch.tensor(val_dataset.to_eval, dtype=torch.bool), torch.tensor(test_dataset.to_eval, dtype=torch.bool)
-        
-        # Create OE (1 example) datasets when needed
-
-        if args.one_each:
-            train_dataset_1_each = OEDataset(train_dataset)
-            test_dataset_1_each = OEDataset(test_dataset)
-            train_dataset_1_each.to_eval, test_dataset_1_each.to_eval = torch.tensor(train_dataset_1_each.to_eval, dtype=torch.bool), torch.tensor(test_dataset_1_each.to_eval, dtype=torch.bool)
+        #train_dataset.to_eval, test_dataset.to_eval = torch.tensor(train_dataset.to_eval, dtype=torch.bool), torch.tensor(test_dataset.to_eval, dtype=torch.bool)
 
     else:
         train_dataset = [(x, y) for (x, y) in zip(train.X, train.Y)]
@@ -461,13 +495,6 @@ def main():
     test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
                                             batch_size=args.batch_size,
                                             shuffle=False)
-    if args.one_each:
-        train_oe_loader = torch.utils.data.DataLoader(dataset=train_dataset_1_each,
-                                            batch_size=args.batch_size,
-                                            shuffle=True)
-        test_oe_loader = torch.utils.data.DataLoader(dataset=train_dataset_1_each,
-                                            batch_size=args.batch_size,
-                                            shuffle=True)
 
     # We do not evaluate the performance of the model on the 'roots' node (https://dtai.cs.kuleuven.be/clus/hmcdatasets/)
     if 'GO' in dataset_name:
@@ -475,16 +502,21 @@ def main():
     else:
         num_to_skip = 1
 
-    if "cub" in args.dataset:
-        mat = np.load(mat_path)
+    # Prepare matrix
+    if data in {"amazon", "bgc", "wos"}:     
+        mat = np.load(mat_path_dict[data])
     else:
         mat = train.A
+
     # Prepare circuit: TODO needs cleaning
     if not args.no_constraints:
-
-        if not os.path.isfile('constraints/' + dataset_name + '_excl'+ '.sdd') or not os.path.isfile('constraints/' + dataset_name + '_excl'+ '.vtree'):
+        #print(mat.shape) #500x500 classes
+        #print(np.array(train_labels).shape)
+        
+        if not os.path.isfile('constraints/' + dataset_name + '_excl' + '.sdd') or not os.path.isfile('constraints/' + dataset_name + '_excl' + '.vtree'):
             # Compute matrix of ancestors R
             # Given n classes, R is an (n x n) matrix where R_ij = 1 if class i is ancestor of class j
+            #np.savetxt("foo.csv", mat, delimiter=",") #Check mat
             R = np.zeros(mat.shape)
             np.fill_diagonal(R, 1)
             g = nx.DiGraph(mat)
@@ -496,7 +528,6 @@ def main():
             R = torch.tensor(R)
 
             #Transpose to get the ancestors for each node 
-            #R = R.transpose(1, 0)
             R = R.unsqueeze(0).to(device)
 
             # Uncomment below to compile the constraint
@@ -504,6 +535,49 @@ def main():
             mgr = SddManager(
                 var_count=R.size(0),
                 auto_gc_and_minimize=True)
+
+            me_layers = layer_map.values() #{max_layer-1, max_layer} #layer_map.values() #
+            nz_layers = {1, 2}
+
+            '''alpha = mgr.true()
+            alpha.ref()
+            for i in range(R.size(0)):
+
+                beta = mgr.true()
+                beta.ref()
+                for j in range(R.size(0)):
+
+                    if R[i][j] and i != j:
+                        old_beta = beta
+                        beta = beta & mgr.vars[j+1]
+                        beta.ref()
+                        old_beta.deref()
+
+                old_beta = beta
+                beta = -mgr.vars[i+1] | beta
+                beta.ref()
+                old_beta.deref()
+
+               #DELTA - ME constraint
+                if layer_map[i] not in me_layers:
+                    continue
+                #make a list of indices of all species under g
+                species = [j for j in range(R.size(0)) if R[i][j] and i != j]
+
+                for idx1 in range(len(species)):
+                    for idx2 in range(idx1 + 1, len(species)): # all species after s1
+
+                        old_beta = beta
+                        beta = beta & (-mgr.vars[idx1+1] | -mgr.vars[idx2+1]) #one clause must be true # sdd count starts at 1
+                        beta.ref()
+                        old_beta.deref()
+
+
+                old_alpha = alpha
+                alpha = alpha & beta
+                alpha.ref()
+                old_alpha.deref()
+'''
 
             alpha = mgr.true()
             alpha.ref()
@@ -513,14 +587,14 @@ def main():
                beta.ref()
                for j in range(R.size(0)):
 
-                   if R[i][j] and i != j: # if j is descendant of i and not in the diagonal
-                       old_beta = beta # clone new beta
-                       beta = beta & mgr.vars[j+1] #beta = {boolean val of beta} AND class_j_is_active
-                       beta.ref() #protect new one
-                       old_beta.deref() #remove old_beta
+                   if R[i][j] and i != j:
+                       old_beta = beta
+                       beta = beta & mgr.vars[j+1] # conjunction of all of its children: true & j1 & j2 & ...
+                       beta.ref()
+                       old_beta.deref()
 
                old_beta = beta
-               beta = -mgr.vars[i+1] | beta #if class i is present, then all its descendants must be present
+               beta = -mgr.vars[i+1] | beta # either False or pick all children 
                beta.ref()
                old_beta.deref()
 
@@ -528,12 +602,13 @@ def main():
                alpha = alpha & beta
                alpha.ref()
                old_alpha.deref()
-            
+
                 # Mutual exclusivity logic
+
+            # applies to all layers
             
-            # applies to the last layer (last layer is most prone to violations)
-            max_layer = max(layer_map.values())
-            me_layers = {max_layer-1, max_layer}
+            me_layers = layer_map.values() #{max_layer-1, max_layer} #layer_map.values() #
+            nz_layers = {1, 2}
 
             #initialize delta for ME
             delta = mgr.true()
@@ -547,18 +622,40 @@ def main():
 
                 for idx1 in range(len(species)):
                     for idx2 in range(idx1 + 1, len(species)): # all species after s1
-                        
+                        s1 = species[idx1]   # actual node index
+                        s2 = species[idx2]   
+
                         old_delta = delta
-                        delta = delta & (-mgr.vars[idx1+1] | -mgr.vars[idx2+1]) #one clause must be true # sdd count starts at 1
+                        delta = delta & (-mgr.vars[s1+1] | -mgr.vars[s2+1]) #OR: one clause must be true # sdd count starts at 1
+
+                        
+                        #delta = delta & (-mgr.vars[idx1+1] | -mgr.vars[idx2+1]) #OR: one clause must be true # sdd count starts at 1
                         delta.ref()
                         old_delta.deref()
+
+                '''# NONZERO CONSTRAINTS HERE
+
+                if layer_map[i] in nz_layers:
+                    zeta = mgr.false()
+                    zeta.ref()
+                    for s in species: # loop to OR every species
+                        old_zeta = zeta
+                        zeta = zeta | mgr.vars[s+1] #either False or select one
+                        zeta.ref()
+                        old_zeta.deref()
+
+                    old_delta = delta
+                    delta = delta & zeta
+                    delta.ref()
+                    old_delta.deref()
+                    #zeta.deref()'''
 
             old_alpha = alpha
             alpha = alpha & delta
             alpha.ref()
             old_alpha.deref()
             
-            # Saving circuit & vtree to disk
+
             alpha.save(str.encode('constraints/' + dataset_name + '_excl'+ '.sdd'))
             alpha.vtree().save(str.encode('constraints/' + dataset_name + '_excl'+ '.vtree'))
 
@@ -571,6 +668,7 @@ def main():
 
         # Create gating function
         gate = DenseGatingFunction(cmpe.beta, gate_layers=[128] + [256]*args.gates, num_reps=args.num_reps).to(device)
+
         R = None
 
 
@@ -585,27 +683,10 @@ def main():
         cmpe.overparameterize()
 
         # Gating function
-        gate = DenseGatingFunction(cmpe.beta, gate_layers=[128]).to(device)
+        gate = DenseGatingFunction(cmpe.beta, gate_layers=[128]).to(device) #changed 462 to 128. why 462?
+
         R = None
 
-    # Output path
-    if args.exp_id:
-        out_path = os.path.join(args.output, args.exp_id)
-    else:
-        date_string = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        out_path = os.path.join(args.output,  '{}_{}_{}_{}_{}'.format(args.dataset, date_string, args.batch_size, args.gates, args.lr))
-    os.makedirs(out_path, exist_ok=True)
-
-    # Tensorboard
-    writer = SummaryWriter(log_dir=os.path.join(out_path, "runs"))
-
-    # Dump experiment parameters
-    args_out_path = os.path.join(out_path, 'args.json')
-    json_args = json.dumps(vars(args))
-
-    print("Starting with arguments:\n%s\n\tdumped at %s", json_args, args_out_path)
-    with open(args_out_path, 'w') as f:
-        f.write(json_args)
 
     # Create the model
     # Load train, val and test set
@@ -613,12 +694,12 @@ def main():
     model = ConstrainedFFNNModel(input_dims[data], hidden_dim, output_dim, hyperparams, R, args.dataset) # 1% at 45 ep, learns faster?/better? but accuracy still low, 13%
     #model = LeNet5(input_dims[data], hidden_dim, output_dim, hyperparams, R, args.dataset) #1% accuracy at 80 epochs
     #if args.no_train:
-    best_file, best_loss = find_best_pth_file(model.__class__.__name__)
+    #best_file, best_loss = find_best_pth_file(model.__class__.__name__)
     pretrained = args.pretrained
     #checkpoint_model = torch.load(best_file)
     #checkpoint_gate = torch.load(re.sub("model", "gate", str(best_file)))
-    checkpoint_model = torch.load("models/250508_model-d_model.pth")
-    checkpoint_gate = torch.load("models/250508_model-d_gate.pth")
+    checkpoint_model = torch.load("models/250813_model-d_wos_model.pth", weights_only=False)
+    checkpoint_gate = torch.load("models/250813_model-d_wos_gate.pth")
     if pretrained == True:
         full_model = checkpoint_model["model_state_dict"]
         backbone_state_dict = {k.replace('backbone.', ''):v for k, v in full_model.items() if k.startswith('backbone.')} # extract only the backbone states
@@ -634,6 +715,26 @@ def main():
     optimizer = torch.optim.Adam(list(model.parameters()) + list(gate.parameters()), lr=args.lr, weight_decay=args.wd)
     criterion = nn.BCELoss(reduction="none")
     date_string = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+
+        # Output path
+    if args.exp_id:
+        out_path = os.path.join(args.output, args.exp_id)
+    else:
+        date_string = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        out_path = os.path.join(args.output,  '{}_{}_{}_{}_{}_{}'.format(args.dataset, data, date_string, args.batch_size, args.gates, args.lr))
+    os.makedirs(out_path, exist_ok=True)
+
+        # Tensorboard
+    writer = SummaryWriter(log_dir=os.path.join(out_path, "runs"))
+
+    # Dump experiment parameters
+    args_out_path = os.path.join(out_path, 'args.json')
+    json_args = json.dumps(vars(args))
+
+    print("Starting with arguments:\n%s\n\tdumped at %s", json_args, args_out_path)
+    with open(args_out_path, 'w') as f:
+        f.write(json_args)
+
     best_loss = float('inf')
     valid_loss = float('inf')
     best_model_weights = None
@@ -641,7 +742,7 @@ def main():
     best_gate_path = None
     patience = 10
     model_save_folder = "models"
-    hierarchy_levels = ['order', 'family', 'genus', 'species']
+
     
     '''def evaluate(model):
         test_val_t = perf_counter()
@@ -688,7 +789,7 @@ def main():
     def evaluate_circuit(model, gate, cmpe, epoch, data_loader, data_split, prefix, diff_data):
         test_val_t = perf_counter()
         if args.separate:
-            test_correct = {level: 0 for level in hierarchy_levels}
+            test_correct = {level: 0 for level in hierarchy_levels[data]}
         else:
             test_correct = 0            
         for i, (x,y) in enumerate(data_loader):
@@ -720,19 +821,19 @@ def main():
 
             if args.species_only:
                 #species only: select last 200 columns
-                pred_y = pred_y[:, -200:]
-                y = y[:, -200:]
+                pred_y = pred_y[:, -hierarchy_num[data][-1]:]
+                y = y[:, -hierarchy_num[data][-1]:]
 
             if args.separate:
-                pred_y_separate = split_category(pred_y) #returns tuple of tensors
-                y_separate = split_category(y)
+                pred_y_separate = split_category(pred_y, data) #returns tuple of tensors
+                y_separate = split_category(y, data)
                 # Initialize a dictionary to hold correct counts per level
                 #num_correct = {level: 0 for level in hierarchy_levels}
                 #nll_batch = {level: cmpe.cross_entropy(y_part, log_space=True).mean() for level, y_part in zip(hierarchy_levels, y_separate)}
 
                 # Loop over each hierarchical level (order, family, genus, species)
             
-                for j, level in enumerate(hierarchy_levels):
+                for j, level in enumerate(hierarchy_levels[data]):
                     # Extract predictions and labels for each level
                     pred_level = pred_y_separate[j]
                     label_level = y_separate[j]
@@ -774,16 +875,16 @@ def main():
 
         if args.separate:
             
-            accuracy_levels = {level: test_correct[level] / len(y_test) for level in hierarchy_levels}
+            accuracy_levels = {level: test_correct[level] / len(y_test) for level in hierarchy_levels[data]}
             nll = nll.detach().to("cpu").numpy() / (i+1)
 
-            if "cub" in args.dataset:
+            if data in ["cub", "amazon", "bgc", "wos"]:
                 #remove redundant dimension (all True)
                 y_test_squeeze = y_test.squeeze(1)
                 predicted_test_squeeze = predicted_test.squeeze(1)
                             
-                true_split = split_category(y_test_squeeze)
-                pred_split = split_category(predicted_test_squeeze)
+                true_split = split_category(y_test_squeeze, data)
+                pred_split = split_category(predicted_test_squeeze, data)
 
                 # Ensure correct shape (1D numpy array) & convert to np tensor
                 y_test = y_test.squeeze().cpu().numpy()
@@ -791,8 +892,8 @@ def main():
             
                 
                 #nll_levels = {level: nll_levels[level].detach().to("cpu").numpy() / (i+1) for level in hierarchy_levels}
-                jaccard_levels = {level: jaccard_score(true, pred, average='micro') for level, true, pred in zip(hierarchy_levels, true_split, pred_split)}
-                hamming_levels = {level: hamming_loss(true, pred) for level, true, pred in zip(hierarchy_levels, true_split, pred_split)}
+                jaccard_levels = {level: jaccard_score(true, pred, average='micro') for level, true, pred in zip(hierarchy_levels[data], true_split, pred_split)}
+                hamming_levels = {level: hamming_loss(true, pred) for level, true, pred in zip(hierarchy_levels[data], true_split, pred_split)}
 
                 # Print evaluation metrics for each level
                 print(f"Evaluation metrics on {prefix} \t {dt:.4f}")
@@ -800,17 +901,17 @@ def main():
                 
                 
                 print('\n'.join(
-                    [f"{level.capitalize()}\tCorrect: {test_correct[level]}\tAccuracy: {accuracy_levels[level]}"
+                    [f"Level {level.capitalize()}:\tCorrect: {test_correct[level]}\tAccuracy: {accuracy_levels[level]}"
                     f"\tHamming: {hamming_levels[level]}\tJaccard: {jaccard_levels[level]}\tNLL: {nll}"
-                    for level in hierarchy_levels]
+                    for level in hierarchy_levels[data]]
                 ))
 
                 return {
-                f"{prefix}/accuracy": (accuracy_levels["order"], accuracy_levels["family"], accuracy_levels["genus"], accuracy_levels["species"], epoch, dt),
-                f"{prefix}/hamming": (hamming_levels["order"], hamming_levels["family"], hamming_levels["genus"], hamming_levels["species"], epoch, dt),
-                f"{prefix}/jaccard": (jaccard_levels["order"], jaccard_levels["family"], jaccard_levels["genus"], jaccard_levels["species"], epoch, dt),
+                f"{prefix}/accuracy": ([accuracy_levels[level] for level in hierarchy_levels[data]], epoch, dt),
+                f"{prefix}/hamming": ([hamming_levels[level] for level in hierarchy_levels[data]], epoch, dt),
+                f"{prefix}/jaccard": ([jaccard_levels[level] for level in hierarchy_levels[data]], epoch, dt),
                 f"{prefix}/nll": (nll, epoch, dt),
-            }, true_split, pred_split, predicted_test
+            }, true_split, pred_split, predicted_test, y_test
             
 
         else:
@@ -821,19 +922,19 @@ def main():
 
             assert y_test.shape == predicted_test.shape, "Mismatch between y and y_pred lengths!"
             
-            if "cub" in args.dataset:
+            if data in ["cub", "amazon", "bgc", "wos"]:
                 #remove redundant dimension (all True)
                 y_test_squeeze = y_test.squeeze(1)
                 predicted_test_squeeze = predicted_test.squeeze(1)
 
             if args.species_only:
-                true_split = split_category_species(y_test_squeeze)
-                pred_split = split_category_species(predicted_test_squeeze)
+                true_split = split_category_species(y_test_squeeze, data)
+                pred_split = split_category_species(predicted_test_squeeze, data)
             else:
-                true_split = split_category(y_test_squeeze)
-                pred_split = split_category(predicted_test_squeeze)
+                true_split = split_category(y_test_squeeze, data)
+                pred_split = split_category(predicted_test_squeeze, data)
 
-            if "cub" in args.dataset:
+            if data in ["cub", "amazon", "bgc", "wos"]:
                 # Ensure correct shape (1D numpy array)
                 y_test = y_test.squeeze()
                 predicted_test = predicted_test.squeeze()
@@ -861,35 +962,27 @@ def main():
                     f"{prefix}/hamming": (hamming, epoch, dt),
                     f"{prefix}/jaccard": (jaccard, epoch, dt),
                     f"{prefix}/nll": (nll, epoch, dt),
-                }, true_split, pred_split, predicted_test
+                }, true_split, pred_split, predicted_test, y_test
 
     
-    if "cub" in args.dataset:
-        if args.one_each:
-            data_split_test = test_dataset_1_each
-            data_split_train = train_dataset_1_each
-            test_load = test_oe_loader
-            train_load = train_oe_loader
-        else:
-            data_split_test = test_dataset
-            data_split_train = train_dataset
-            test_load = test_loader
-            train_load = train_loader
+    if data in ["cub", "amazon", "bgc", "wos"]:
+        data_split_test = test_dataset
+        data_split_val = val_dataset
+        data_split_train = train_dataset
     else:
         data_split_test = test
         data_split_train = train
-        test_load = test_loader
-        train_load = train_loader
+        data_split_val = None
 
     if args.no_train:
         diff_data_train = []
         diff_data_test = []
-        perf_test, true_split_test, pred_split_test, predicted_test = evaluate_circuit(
+        perf_test, true_split_test, pred_split_test, predicted_test, y_test = evaluate_circuit(
             model,
             gate, 
             cmpe,
             epoch=None,
-            data_loader=test_load,
+            data_loader=test_loader,
             data_split=data_split_test,
             prefix="param_sdd/test",
             diff_data=diff_data_test,
@@ -918,8 +1011,8 @@ def main():
                     score, epoch, dt = tupl
                     writer.add_scalar(perf_name, score, global_step=epoch, walltime=dt)
                 else:
-                    score_o, score_f, score_g, score_s, epoch, dt = tupl
-                    for level, score in zip(hierarchy_levels, [score_o, score_f, score_g, score_s]):
+                    scores, epoch, dt = tupl
+                    for level, score in zip(hierarchy_levels[data], scores):
                         writer.add_scalar(f"{perf_name}/{level}", score, global_step=epoch, walltime=dt)
         else:
             for perf_name, (score, epoch, dt) in perf.items():
@@ -944,21 +1037,23 @@ def main():
 
         if args.exp_id:
             #pd.DataFrame(diff_data_train).to_csv(f"difference_train_{model.__class__.__name__}_oe{args.one_each}_{args.exp_id}_{date_string}.csv", index=False, header=False)
-            pd.DataFrame(diff_data_test).to_csv(os.path.join(diff_folder, f"difference_test_{model.__class__.__name__}_oe{args.one_each}_{args.exp_id}_{date_string}.csv"), index=False, header=False)
-            pd.DataFrame(predicted_test).to_csv(os.path.join(pred_y_folder, f"predicted_test_{model.__class__.__name__}_oe{args.one_each}_{args.exp_id}_{date_string}.csv"), index=False, header=False)
+            pd.DataFrame(diff_data_test).to_csv(os.path.join(diff_folder, f"difference_test_{data}_oe{args.one_each}_{args.exp_id}_{date_string}.csv"), index=False, header=False)
+            pd.DataFrame(predicted_test).to_csv(os.path.join(pred_y_folder, f"predicted_test_{data}_oe{args.one_each}_{args.exp_id}_{date_string}.csv"), index=False, header=False)
+            pd.DataFrame(y_test).to_csv(os.path.join(pred_y_folder, f"y_test_{data}_oe{args.one_each}_{args.exp_id}_{date_string}.csv"), index=False, header=False)
         else:
             #pd.DataFrame(diff_data_train).to_csv(f"difference_train_{model.__class__.__name__}_oe{args.one_each}_{date_string}.csv", index=False, header=False)
-            pd.DataFrame(diff_data_test).to_csv(os.path.join(diff_folder, f"difference_test_{model.__class__.__name__}_oe{args.one_each}_{date_string}.csv"), index=False, header=False)
-            pd.DataFrame(predicted_test).to_csv(os.path.join(pred_y_folder, f"predicted_test_{model.__class__.__name__}_oe{args.one_each}_{date_string}.csv"), index=False, header=False)
+            pd.DataFrame(diff_data_test).to_csv(os.path.join(diff_folder, f"difference_test_{data}_oe{args.one_each}_{date_string}.csv"), index=False, header=False)
+            pd.DataFrame(predicted_test).to_csv(os.path.join(pred_y_folder, f"predicted_test_{data}_oe{args.one_each}_{date_string}.csv"), index=False, header=False)
+            pd.DataFrame(y_test).to_csv(os.path.join(pred_y_folder, f"y_test_{data}_oe{args.one_each}_{date_string}.csv"), index=False, header=False)
 
         #Create confusion matrix per class for test set only
         if args.species_only:
             matrix_names = ["species"]
-            num_classes_per_level = [200]
+            num_classes_per_level = hierarchy_num[data][-1]
             
         else:
-            matrix_names = hierarchy_levels
-            num_classes_per_level = [13, 37, 123, 200]
+            matrix_names = hierarchy_levels[data]
+            num_classes_per_level = hierarchy_num[data]
         #
         cm_folder = f"./confusion_matrices/{date_string}_{args.exp_id}"
 
@@ -989,7 +1084,7 @@ def main():
             plt.ylabel("True")
             plt.title("Confusion Matrix") 
             
-            plt.savefig(os.path.join(cm_folder, f"{n}_{model.__class__.__name__}_nc{args.no_constraints}_{date_string}.png"))
+            plt.savefig(os.path.join(cm_folder, f"{n}_{data}_nc{args.no_constraints}_{date_string}.png"))
             plt.close()
 
         print("Confusion matrices successfully generated.")        
@@ -1002,12 +1097,12 @@ def main():
             if epoch % 5 == 0 and epoch != 0:
 
                 print(f"EVAL@{epoch}")
-                perf_test, true_split_test, pred_split_test, predicted_test = evaluate_circuit(
+                perf_test, true_split_test, pred_split_test, predicted_test, y_test = evaluate_circuit(
                         model,
                         gate, 
                         cmpe,
                         epoch=epoch,
-                        data_loader=test_load,
+                        data_loader=test_loader,
                         data_split=data_split_test,
                         prefix="param_sdd/test",
                         diff_data=diff_data_test,
@@ -1026,7 +1121,7 @@ def main():
             gate.train()
 
             tot_loss = 0
-            for i, (x, labels) in enumerate(train_load):
+            for i, (x, labels) in enumerate(train_loader):
 
                 x = x.to(device)
                 labels = labels.to(device)
@@ -1049,8 +1144,8 @@ def main():
             print(f"{epoch+1}/{num_epochs} train loss: {avg_loss}\t {(train_e-train_t):.4f}")
 
             # Early stopping loop and save best model
-            if avg_loss < best_loss: #may change to valid_loss instead of avg_loss (training loss). avg_loss performs slightly better (longer training time)
-                best_loss = avg_loss
+            if valid_loss < best_loss: #may change to valid_loss instead of avg_loss (training loss). avg_loss performs slightly better (longer training time)
+                best_loss = valid_loss
                 best_model_weights = copy.deepcopy(model.state_dict()) #Retrieve best model weights 
                 patience = 10  # Reset patience counter
                 if args.exp_id:
@@ -1062,12 +1157,12 @@ def main():
                     date_string = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
                     out_path_model = os.path.join(model_save_folder,  
                                                 '{}_{}_{}_{}_nc{}_model_finetuned.pth'.format(
-                                                    args.dataset, model.__class__.__name__, date_string, args.batch_size, args.no_constraints
+                                                    args.dataset, data, date_string, args.batch_size, args.no_constraints
                                                     ))
                     
                     out_path_gate = os.path.join(model_save_folder,  
                                                 '{}_{}_{}_{}_nc{}_gate_finetuned.pth'.format(
-                                                    args.dataset, model.__class__.__name__, date_string, args.batch_size, args.no_constraints
+                                                    args.dataset, data, date_string, args.batch_size, args.no_constraints
                                                     ))
                 
                 # Remove the previous best model and gate (for each bash run) if exists
@@ -1094,12 +1189,12 @@ def main():
                     #generate confusion matrix and evaluate at last epoch
             
                     print(f"EVAL@{epoch+1}")
-                    perf_test, true_split_test, pred_split_test, predicted_test = evaluate_circuit(
+                    perf_test, true_split_test, pred_split_test, predicted_test, y_test = evaluate_circuit(
                             model,
                             gate, 
                             cmpe,
                             epoch=epoch,
-                            data_loader=test_load,
+                            data_loader=test_loader,
                             data_split=data_split_test,
                             prefix="param_sdd/test",
                             diff_data=diff_data_test
@@ -1114,18 +1209,18 @@ def main():
                     # Save difference file for test and train sets
 
                     if args.exp_id:
-                        pd.DataFrame(diff_data_test).to_csv(f"difference_test_{model.__class__.__name__}_oe{args.one_each}_{args.exp_id}_{date_string}.csv", index=False)
+                        pd.DataFrame(diff_data_test).to_csv(f"difference_test_{data}_oe{args.one_each}_{args.exp_id}_{date_string}.csv", index=False)
                     else:
-                        pd.DataFrame(diff_data_test).to_csv(f"difference_test_{model.__class__.__name__}_oe{args.one_each}_{date_string}.csv", index=False)
+                        pd.DataFrame(diff_data_test).to_csv(f"difference_test_{data}_oe{args.one_each}_{date_string}.csv", index=False)
 
                     #Create confusion matrix per class for test set only
                     if args.species_only:
                         matrix_names = ["species"]
-                        num_classes_per_level = [200]
+                        num_classes_per_level = hierarchy_num[data][-1]
                         
                     else:
-                        matrix_names = ["order", "family", "genus", "species"]
-                        num_classes_per_level = [13, 37, 123, 200]
+                        matrix_names = hierarchy_levels[data]
+                        num_classes_per_level = hierarchy_num[data]
                     #
                     cm_folder = f"./confusion_matrices/{date_string}_{args.exp_id}"
 

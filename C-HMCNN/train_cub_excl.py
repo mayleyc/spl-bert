@@ -9,6 +9,7 @@ import glob
 import torch
 import torch.nn as nn
 
+
 from torch.utils.tensorboard import SummaryWriter
 
 
@@ -20,6 +21,10 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import train_test_split
 
+import json
+from timeit import default_timer as timer
+
+
 # Circuit imports
 import sys
 sys.path.append(os.path.join(sys.path[0],'hmc-utils'))
@@ -30,6 +35,7 @@ from compute_mpe import CircuitMPE
 from pysdd.sdd import SddManager, Vtree
 
 from sklearn import preprocessing
+
 
 # misc
 from common import *
@@ -106,7 +112,7 @@ from PIL import Image
 
         return image, label_set
 '''   
-class CUB_Dataset_Embeddings(Dataset):
+class Embeddings_Dataset(Dataset):
     def __init__(self, embeddings, labels, to_eval = True):
         self.embeddings = embeddings
         self.labels = labels
@@ -282,25 +288,23 @@ def main():
     # Load train, val and test set
     dataset_name = args.dataset
     data = dataset_name.split('_')[0]
-    ontology = dataset_name.split('_')[1]
-    hidden_dim = hidden_dims[ontology][data]
+    spl_bert_datasets = {}
+    #ontology = dataset_name.split('_')[1]
+    hidden_dim = 1000 #hidden_dims[ontology][data]
     output_dim = 128 #not the number of classes
 
     num_epochs = args.n_epochs
- 
+    
+    with open("embeddings_config.json") as f:
+        emb_fp = json.load(f)
 
-    if "cub" in args.dataset:
-        if "mini" in args.dataset:
-            mat_path = mat_path_mini
-            csv_path = csv_path_mini
-        else:
-            mat_path = mat_path_full
-            csv_path = csv_path_full
+    #mat_path = mat_path_full
+    #csv_path = csv_path_full
 
     # Set the hyperparameters 
     hyperparams = {
         'num_layers': 3,
-        'dropout': 0.7,
+        'dropout': 0.2, #0.7
         'non_lin': 'relu',
     }
 
@@ -311,7 +315,7 @@ def main():
 
     device = torch.device("cuda:" + str(args.device) if torch.cuda.is_available() else "cpu")
 
-    emb_model_name = "resnet50"
+    emb_model_name = "bert-base-uncased"
     
     '''
     # list of files in cub 2011 and y labels
@@ -374,27 +378,75 @@ def main():
             )
             '''
     
-    if "cub" in args.dataset:    
+    if data in {"amazon", "bgc", "wos"}:  
         # load pickle at /embeddings
-        emb_file = find_latest_emb_file(emb_model_name, dataset_name)
+        #emb_file = find_latest_emb_file(emb_model_name, dataset_name)
+        train_emb_file = emb_fp[data]["train"]
+        test_emb_file = emb_fp[data]["test"]
+        val_emb_file = emb_fp[data]["val"]
+        
+        all_embeddings = {}
+        all_labels = {}
+        all_texts = {}
 
+        dataset_files = {
+                        'train': train_emb_file,
+                        'val': val_emb_file,
+                        'test': test_emb_file
+                        }
+        
+        #ohe_df = pd.read_csv(ohe_csv, index_col=0).astype(int)
+
+        for split, emb_file in dataset_files.items():
+            with open(emb_file, "rb") as f:
+                texts, emb_list, ohe_labels = pickle.load(f)
+            
+            #label_species = [label[-1] for label in labels_unprocessed]
+            
+            #ohe_labels = [torch.from_numpy(ohe_df[species]).to(device) for species in label_species]
+            
+            #Normalize tensors
+            emb_tensors = [
+                                nn.functional.normalize(torch.tensor(embe, dtype=torch.float32, device=device), p=2.0, dim=-1, eps=1e-12)
+                                for embe in emb_list
+                                ]
+            ohe_labels = [ohe.detach().clone() for ohe in ohe_labels]
+
+            all_embeddings[split] = emb_tensors
+            all_labels[split] = ohe_labels
+            all_texts[split] = texts
+        
+        #print(all_labels['train'][0])
+        #quit()
+
+
+        '''for i, emb_file in enumerate([train_emb_file, val_emb_file, test_emb_file]):
         # Load and split dataset into train, val, and test sets
-        with open(emb_file, "rb") as f:
-            all_paths, all_embeddings, labels_unprocessed = pickle.load(f)
-        label_species = [label.split('.')[-1] for label in labels_unprocessed]
-        label_species = [re.sub('_', ' ', label) for label in label_species] # the species-level label for each image
+            with open(emb_file, "rb") as f:
+                texts, embeddings, labels_unprocessed = pickle.load(f)
+            label_species = [label[-1] for label in labels_unprocessed]
+            #label_species = [re.sub('_', ' ', label) for label in label_species] # the species-level label for each image
+            
+            #ohe_dict, _ = get_one_hot_labels(label_species, csv_path)
+            ohe_labels = [torch.from_numpy(ohe_df[species]).to(device) for species in label_species]
+            
+            embeddings_tensor = [torch.tensor(emb) for emb in embeddings]
+
+            if i in dataset_map:
+                data_split = dataset_map[i]
+                embeddings[data_split] = embeddings_tensor
+                labels[data_split] = ohe_labels
+
+            if i == 0: 
+                train_emb, train_labels = embeddings_tensor, ohe_labels
+            elif i == 1: # no validation set?
+                val_emb, val_labels = embeddings_tensor, ohe_labels
+            elif i == 2:
+                test_emb, test_labels = embeddings_tensor, ohe_labels'''
         
-        ohe_dict, _ = get_one_hot_labels(label_species, csv_path)
-        ohe_labels = [torch.from_numpy(ohe_dict[species]).to(device) for species in label_species]
-        '''
-        print(ohe_labels[0])
-        print(f'Labels: {torch.sum(ohe_labels[0])}')
-        quit()
-        '''
-        all_embeddings_tensor = [torch.tensor(emb) for emb in all_embeddings]
-        train_emb, temp_emb, train_labels, temp_labels = train_test_split(all_embeddings_tensor, ohe_labels, test_size=0.3, random_state=args.seed)
-        val_emb, test_emb, val_labels, test_labels = train_test_split(temp_emb, temp_labels, test_size=0.7, random_state=args.seed)
-        
+            #train_emb, temp_emb, train_labels, temp_labels = train_test_split(all_embeddings_tensor, ohe_labels, test_size=0.3, random_state=args.seed)
+            #val_emb, test_emb, val_labels, test_labels = train_test_split(temp_emb, temp_labels, test_size=0.7, random_state=args.seed)
+            
     elif ('others' in args.dataset):
         train, test = initialize_other_dataset(dataset_name, datasets)
         train.to_eval, test.to_eval = torch.tensor(train.to_eval, dtype=torch.bool),  torch.tensor(test.to_eval, dtype=torch.bool)
@@ -405,14 +457,17 @@ def main():
         #print(train.Y.shape)
 
         #Create loaders
-    if "cub" in args.dataset:
+    if data in {"amazon", "bgc", "wos"}: 
         # Create datasets for each split: Change labels
-        train_dataset = CUB_Dataset_Embeddings(train_emb, train_labels, to_eval = True)
-        val_dataset = CUB_Dataset_Embeddings(val_emb, val_labels, to_eval = True)
-        test_dataset = CUB_Dataset_Embeddings(test_emb, test_labels, to_eval = True)
+        train_dataset = Embeddings_Dataset(all_embeddings["train"], all_labels["train"], to_eval = True)
+        #val_dataset = Embeddings_Dataset(val_emb, val_labels, to_eval = True)
+        test_dataset = Embeddings_Dataset(all_embeddings["test"], all_labels["test"], to_eval = True)
+        val_dataset = Embeddings_Dataset(all_embeddings["val"], all_labels["val"], to_eval = True)
 
         # convert them into tensors: shape = output_dim + 1
         train_dataset.to_eval, val_dataset.to_eval, test_dataset.to_eval = torch.tensor(train_dataset.to_eval, dtype=torch.bool), torch.tensor(val_dataset.to_eval, dtype=torch.bool), torch.tensor(test_dataset.to_eval, dtype=torch.bool)
+        #train_dataset.to_eval, test_dataset.to_eval = torch.tensor(train_dataset.to_eval, dtype=torch.bool), torch.tensor(test_dataset.to_eval, dtype=torch.bool)
+
     else:
         train_dataset = [(x, y) for (x, y) in zip(train.X, train.Y)]
         if ('others' not in args.dataset):
@@ -445,8 +500,8 @@ def main():
         num_to_skip = 1
 
     # Prepare matrix
-    if "cub" in args.dataset:        
-        mat = np.load(mat_path)
+    if data in {"amazon", "bgc", "wos"}:     
+        mat = np.load(mat_path_dict[data])
     else:
         mat = train.A
 
@@ -477,6 +532,51 @@ def main():
             mgr = SddManager(
                 var_count=R.size(0),
                 auto_gc_and_minimize=True)
+            
+            max_layer = max(layer_map.values())
+
+            me_layers = {l for l in layer_map.values() if l != max_layer} #{max_layer-1, max_layer} #layer_map.values() #
+            nz_layers = {0, 1} #bgc has Level 1 annotations :(
+
+            '''alpha = mgr.true()
+            alpha.ref()
+            for i in range(R.size(0)):
+
+                beta = mgr.true()
+                beta.ref()
+                for j in range(R.size(0)):
+
+                    if R[i][j] and i != j:
+                        old_beta = beta
+                        beta = beta & mgr.vars[j+1]
+                        beta.ref()
+                        old_beta.deref()
+
+                old_beta = beta
+                beta = -mgr.vars[i+1] | beta
+                beta.ref()
+                old_beta.deref()
+
+               #DELTA - ME constraint
+                if layer_map[i] not in me_layers:
+                    continue
+                #make a list of indices of all species under g
+                species = [j for j in range(R.size(0)) if R[i][j] and i != j]
+
+                for idx1 in range(len(species)):
+                    for idx2 in range(idx1 + 1, len(species)): # all species after s1
+
+                        old_beta = beta
+                        beta = beta & (-mgr.vars[idx1+1] | -mgr.vars[idx2+1]) #one clause must be true # sdd count starts at 1
+                        beta.ref()
+                        old_beta.deref()
+
+
+                old_alpha = alpha
+                alpha = alpha & beta
+                alpha.ref()
+                old_alpha.deref()
+'''
 
             alpha = mgr.true()
             alpha.ref()
@@ -488,7 +588,7 @@ def main():
 
                    if R[i][j] and i != j:
                        old_beta = beta
-                       beta = beta & mgr.vars[j+1]
+                       beta = beta & mgr.vars[j+1] # conjunction of all of its children: true & j1 & j2 & ...
                        beta.ref()
                        old_beta.deref()
 
@@ -502,11 +602,9 @@ def main():
                alpha.ref()
                old_alpha.deref()
 
+            print("alpha after beta hierarchy:", alpha.is_true(), alpha.is_false(), alpha.model_count())
+
                 # Mutual exclusivity logic
-            
-            # applies to the last layer (last layer is most prone to violations)
-            max_layer = max(layer_map.values())
-            me_layers = {max_layer-1, max_layer}
 
             #initialize delta for ME
             delta = mgr.true()
@@ -516,23 +614,63 @@ def main():
                 if layer_map[i] not in me_layers:
                     continue
                 #make a list of indices of all species under g
-                species = [j for j in range(R.size(0)) if R[i][j] and i != j]
+                species = [j for j in range(R.size(0)) if R[i][j] and layer_map[j] == layer_map[i] + 1] #i != j]
+                if not species:
+                    continue
 
                 for idx1 in range(len(species)):
                     for idx2 in range(idx1 + 1, len(species)): # all species after s1
+                        s1 = species[idx1]   # actual node index
+                        s2 = species[idx2]   
 
                         old_delta = delta
-                        delta = delta & (-mgr.vars[idx1+1] | -mgr.vars[idx2+1]) #one clause must be true # sdd count starts at 1
+                        delta = delta & (-mgr.vars[s1+1] | -mgr.vars[s2+1]) #OR: one clause must be true # sdd count starts at 1                       
+                        #delta = delta & (-mgr.vars[idx1+1] | -mgr.vars[idx2+1]) #OR: one clause must be true # sdd count starts at 1
                         delta.ref()
                         old_delta.deref()
 
-            old_alpha = alpha
-            alpha = alpha & delta
-            alpha.ref()
-            old_alpha.deref()
+                old_alpha = alpha
+                alpha = alpha & delta
+                alpha.ref()
+                old_alpha.deref()
+                
+        
+            print("alpha after delta hierarchy:", alpha.is_true(), alpha.is_false(), alpha.model_count())
+
+            # NONZERO CONSTRAINTS HERE
+            
+            for i in range(R.size(0)): 
+                if layer_map[i] not in nz_layers:
+                    continue
+                zeta = mgr.false()
+                zeta.ref()
+                species_nz = [j for j in range(R.size(0)) if R[i][j] and layer_map[j] == layer_map[i] + 1]
+                if not species_nz:
+                    continue
+                for s in species_nz: # loop to OR every species
+                    old_zeta = zeta
+                    zeta = zeta | mgr.vars[s+1] #select one
+                    zeta.ref()
+                    old_zeta.deref()
+
+                old_alpha = alpha
+                alpha = alpha & zeta
+                alpha.ref()
+                old_alpha.deref()               
+
+            
+            
+            print("alpha after zeta hierarchy:", alpha.is_true(), alpha.is_false(), alpha.model_count())
+
+            print("delta (mutual exclusivity):", delta.is_true(), delta.is_false(), delta.model_count())
+
+            print("zeta (nonzero):", zeta.is_true(), zeta.is_false(), zeta.model_count())
+            quit()
 
             alpha.save(str.encode('constraints/' + dataset_name + '_excl'+ '.sdd'))
             alpha.vtree().save(str.encode('constraints/' + dataset_name + '_excl'+ '.vtree'))
+            
+
 
         # Create circuit object
         cmpe = CircuitMPE('constraints/' + dataset_name + '_excl'+ '.vtree', 'constraints/' + dataset_name + '_excl'+ '.sdd')
@@ -670,12 +808,11 @@ def main():
 
             cmpe.set_params(thetas)
             pred_y = (cmpe.get_mpe_inst(x.shape[0]) > 0).long()
-           
-
+            
             pred_y = pred_y.to('cpu')
-            #print(pred_y.shape)
             y = y.to('cpu')
             #print(y.shape)
+            #quit()
 
             num_correct = (pred_y == y.byte()).all(dim=-1).sum()
             
@@ -688,6 +825,14 @@ def main():
                 test_correct += num_correct
                 predicted_test = torch.cat((predicted_test, pred_y), dim=0)
                 y_test = torch.cat((y_test, y), dim=0)
+                ''' if i < 5:
+                    #print(x)
+                    print(emb)
+                    #print(thetas)
+                    #print(predicted_test)
+                    
+                else:
+                    quit()'''
 
         dt = perf_counter() - test_val_t
         y_test = y_test[:,data_split.to_eval]
@@ -703,7 +848,7 @@ def main():
         print(y_test.shape, predicted_test.shape)
         print(y_test.dtype, predicted_test.dtype)
         '''
-        if "cub" in args.dataset:
+        if data in ["cub", "amazon", "bgc", "wos"]:
             # Ensure correct shape (1D numpy array)
             y_test = y_test.squeeze()
             predicted_test = predicted_test.squeeze()
@@ -729,12 +874,14 @@ def main():
             f"{prefix}/nll": (nll, epoch, dt),
         }
 
-    if "cub" in args.dataset:
+    if data in ["cub", "amazon", "bgc", "wos"]:
         data_split_test = test_dataset
+        data_split_val = val_dataset
         data_split_train = train_dataset
     else:
         data_split_test = test
         data_split_train = train
+        data_split_val = None
 
     #Initialize Variables for EarlyStopping
     best_loss = float('inf')
@@ -767,10 +914,21 @@ def main():
                     cmpe,
                     epoch=epoch,
                     data_loader=valid_loader,
-                    data_split=data_split_train, #why train?
+                    data_split=data_split_val, #why train? # 250808: did not work with data_split_val
                     prefix="param_sdd/valid",
                 ),
             }
+            '''perf = {
+                **evaluate_circuit(
+                    model,
+                    gate,
+                    cmpe,
+                    epoch=epoch,
+                    data_loader=test_loader,
+                    data_split=data_split_test,
+                    prefix="param_sdd/test",
+                ),
+            }'''
 
             for perf_name, (score, epoch, dt) in perf.items(): #perf_name = metric (accuracy, nll, etc.) Every 5 epochs
                 writer.add_scalar(perf_name, score, global_step=epoch, walltime=dt)
@@ -778,6 +936,25 @@ def main():
                     valid_loss = score
 
             writer.flush()
+
+        '''#Validate every epoch to obtain valid loss
+        perf_val = {
+                **evaluate_circuit(
+                    model,
+                    gate,
+                    cmpe,
+                    epoch=epoch,
+                    data_loader=valid_loader,
+                    data_split=data_split_val, #why train? # 250808: did not work with data_split_val
+                    prefix="param_sdd/valid",
+                ),
+            }
+        
+        for perf_name, (score, epoch, dt) in perf_val.items(): #perf_name = metric (accuracy, nll, etc.) Every epoch
+                writer.add_scalar(perf_name, score, global_step=epoch, walltime=dt)
+                if "valid" in perf_name and "nll" in perf_name:
+                    valid_loss = score
+        writer.flush()'''
 
         train_t = perf_counter()
 
@@ -788,7 +965,10 @@ def main():
         for i, (x, labels) in enumerate(train_loader):
 
             x = x.to(device)
+            #print(x[0])
             labels = labels.to(device)
+            #print(labels[0])
+            #quit()
         
             # Clear gradients w.r.t. parameters
             optimizer.zero_grad()
@@ -806,11 +986,12 @@ def main():
 
         train_e = perf_counter()
         avg_loss = tot_loss/(i+1)
+        
         print(f"{epoch+1}/{num_epochs} train loss: {avg_loss}\t {(train_e-train_t):.4f}")
 
         # Early stopping loop and save best model
-        if avg_loss < best_loss: #may change to valid_loss instead of avg_loss (training loss). avg_loss performs slightly better (longer training time)
-            best_loss = avg_loss
+        if valid_loss < best_loss: #may change to valid_loss instead of avg_loss (training loss). avg_loss performs slightly better (longer training time)
+            best_loss = valid_loss
             best_model_weights = copy.deepcopy(model.state_dict()) #Retrieve best model weights 
             patience = 10  # Reset patience counter
             if args.exp_id:
@@ -821,13 +1002,13 @@ def main():
             else:
                 date_string = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
                 out_path_model = os.path.join(model_save_folder,  
-                                              '{}_{}_{}_{}_nc{}_model.pth'.format(
-                                                args.dataset, model.__class__.__name__, date_string, args.batch_size, args.no_constraints
+                                              '{}_{}_{}_{}_nc{}_lr{}_model.pth'.format(
+                                                args.dataset, data, date_string, args.batch_size, args.no_constraints, args.lr
                                                 ))
                 
                 out_path_gate = os.path.join(model_save_folder,  
-                                              '{}_{}_{}_{}_nc{}_gate.pth'.format(
-                                                args.dataset, model.__class__.__name__, date_string, args.batch_size, args.no_constraints
+                                              '{}_{}_{}_{}_nc{}_lr{}_gate.pth'.format(
+                                                args.dataset, data, date_string, args.batch_size, args.no_constraints, args.lr
                                                 ))
             
             # Remove the previous best model and gate (for each bash run) if exists
@@ -855,4 +1036,7 @@ def main():
                 break
 
 if __name__ == "__main__":
+    start = timer()
     main()
+    end = timer()
+    print(f"Program ran in {end - start:.4f} seconds")

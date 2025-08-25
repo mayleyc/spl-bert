@@ -520,7 +520,7 @@ def main():
             R = np.zeros(mat.shape)
             np.fill_diagonal(R, 1)
             g = nx.DiGraph(mat)
-            layer_map = layer_mapping_BFS(g)
+            layer_map = layer_mapping_BFS(g.reverse(copy=True), num_st_nodes) # 1-indexed # keep original g
             for i in range(len(mat)):
                 descendants = list(nx.descendants(g, i))
                 if descendants:
@@ -535,9 +535,12 @@ def main():
             mgr = SddManager(
                 var_count=R.size(0),
                 auto_gc_and_minimize=True)
+            
+            max_layer = max(layer_map.values())
 
-            me_layers = layer_map.values() #{max_layer-1, max_layer} #layer_map.values() #
-            nz_layers = {1, 2}
+            me_layers = layer_map.values() #{l for l in layer_map.values() if l != max_layer} #{max_layer-1, max_layer} #layer_map.values() #
+            nz_layers = {1} #bgc has Level 1 annotations :(
+            # there is no root in R
 
             '''alpha = mgr.true()
             alpha.ref()
@@ -581,44 +584,139 @@ def main():
 
             alpha = mgr.true()
             alpha.ref()
+            
             for i in range(R.size(0)):
+                beta = mgr.true()
+                beta.ref()
+                for j in range(R.size(1)):
 
-               beta = mgr.true()
-               beta.ref()
-               for j in range(R.size(0)):
+                    if R[i][j] and i != j: # why not R[j][i]?
+                        old_beta = beta
+                        beta = beta & mgr.vars[j+1] # conjunction of all of its children: true & j1 & j2 & ...
+                        beta.ref()
+                        old_beta.deref()
 
-                   if R[i][j] and i != j:
-                       old_beta = beta
-                       beta = beta & mgr.vars[j+1] # conjunction of all of its children: true & j1 & j2 & ...
-                       beta.ref()
-                       old_beta.deref()
+                old_beta = beta
+                beta = -mgr.vars[i+1] | beta
+                beta.ref()
+                old_beta.deref()
 
-               old_beta = beta
-               beta = -mgr.vars[i+1] | beta # either False or pick all children 
-               beta.ref()
-               old_beta.deref()
+                old_alpha = alpha
+                alpha = alpha & beta
+                alpha.ref()
+                old_alpha.deref()
 
-               old_alpha = alpha
-               alpha = alpha & beta
-               alpha.ref()
-               old_alpha.deref()
+            print("alpha after beta hierarchy:", alpha.is_true(), alpha.is_false(), alpha.model_count())
+                
+                #initialize delta for ME
+            
+            for i in range(R.size(0)):    
+                delta = mgr.true() 
+                delta.ref()
+                if layer_map[i] in me_layers:
+                    #make a list of indices of all species under g
+                    species = [j for j in range(R.size(1)) if R[j][i] and layer_map[j] == layer_map[i] + 1] #i != j]
+                    if species:
+                        #print(f"row {i}: {species}")
+                    
+                        for idx1 in range(len(species)):
+                            for idx2 in range(idx1 + 1, len(species)): # all species after s1
+                                s1 = species[idx1]   # actual node index
+                                s2 = species[idx2]   
+
+                                old_delta = delta
+                                delta = delta & (-mgr.vars[s1+1] | -mgr.vars[s2+1]) #OR: one clause must be true # sdd count starts at 1                       
+                                #delta = delta & (-mgr.vars[idx1+1] | -mgr.vars[idx2+1]) #OR: one clause must be true # sdd count starts at 1
+                                delta.ref()
+                                old_delta.deref()
+
+                old_delta = delta
+                delta = -mgr.vars[i+1] | delta
+                delta.ref()
+                old_delta.deref()
+
+                old_alpha = alpha
+                alpha = alpha & delta
+                alpha.ref()
+                old_alpha.deref()
+                
+        
+            print("alpha after delta hierarchy:", alpha.is_true(), alpha.is_false(), alpha.model_count())
+
+            
+            # NONZERO CONSTRAINTS HERE
+            
+
+            for i in range(R.size(0)):
+                # initialize for every node
+                #zeta = mgr.false() 
+                #zeta.ref()
+                
+                #(R[i] == 1).nonzero(as_tuple=True)[0].tolist() #
+                if layer_map[i] in nz_layers:
+                    
+                    species_nz = [j for j in range(R.size(1)) if R[j][i] and layer_map[j] == layer_map[i] + 1]
+                    #species_nz = [j for j in range(R.size(0)) if R[i][j]] #and layer_map[j] == layer_map[i] + 1] #PROBLEM HERE: THIS IS [0] 
+                    #print(species_nz) #[0]
+                    #quit()
+
+                    '''if species_nz: # RESULTS: alpha after zeta hierarchy: 0 0 702485784
+                        #print(f"row {i}: {species_nz}")
+                        for s in species_nz: # loop to OR every species
+                            old_zeta = zeta
+                            # A -> B => -A | A = -A | B
+                            #check for 1 single parent-child pair (from beta downwards): should go down by 1
+                            #Write down on paper the truth table
+                            #without constraints: 2^n + 1
+                            zeta = zeta | mgr.vars[s+1] #select one #negative?
+                            zeta.ref()
+                            old_zeta.deref()'''
+                    if not species_nz:
+                        continue
+                    # RESULTS: alpha after zeta hierarchy: 0 0 479001600
+                    #if species_nz:
+                    #old_zeta = zeta
+                    zeta = mgr.vars[species_nz[0]+1]
+                    zeta.ref()
+                    #old_zeta.deref()
+                    for s in species_nz[1:]: # loop to OR every species
+                        old_zeta = zeta
+                        # A -> B => -A | A = -A | B
+                        #check for 1 single parent-child pair (from beta downwards): should go down by 1
+                        #Write down on paper the truth table
+                        #without constraints: 2^n + 1
+                        
+                        zeta = zeta | mgr.vars[s+1]                            
+                        zeta.ref()
+                        old_zeta.deref()
+
+                    old_zeta = zeta
+                    zeta = -mgr.vars[i+1] | zeta
+                    zeta.ref()
+                    old_zeta.deref()
+
+                    old_alpha = alpha
+                    alpha = alpha & zeta
+                    alpha.ref()
+                    old_alpha.deref()   
+                    #zeta.deref()
+
+            #print("zeta (nonzero):", zeta.is_true(), zeta.is_false(), zeta.model_count())      
 
                 # Mutual exclusivity logic
-
-            # applies to all layers
+            #try with 1 parent: see if the numbers are correct
             
-            me_layers = layer_map.values() #{max_layer-1, max_layer} #layer_map.values() #
-            nz_layers = {1, 2}
 
-            #initialize delta for ME
-            delta = mgr.true()
-            delta.ref()
-
-            for i in range(R.size(0)): #for all genera g
+            '''for i in range(R.size(0)): #for all genera g
+                #initialize delta for ME
+                delta = mgr.true()
+                delta.ref()
                 if layer_map[i] not in me_layers:
                     continue
                 #make a list of indices of all species under g
-                species = [j for j in range(R.size(0)) if R[i][j] and i != j]
+                species = [j for j in range(R.size(0)) if R[i][j] and layer_map[j] == layer_map[i] + 1] #i != j]
+                if not species:
+                    continue
 
                 for idx1 in range(len(species)):
                     for idx2 in range(idx1 + 1, len(species)): # all species after s1
@@ -626,38 +724,59 @@ def main():
                         s2 = species[idx2]   
 
                         old_delta = delta
-                        delta = delta & (-mgr.vars[s1+1] | -mgr.vars[s2+1]) #OR: one clause must be true # sdd count starts at 1
-
-                        
+                        delta = delta & (-mgr.vars[s1+1] | -mgr.vars[s2+1]) #OR: one clause must be true # sdd count starts at 1                       
                         #delta = delta & (-mgr.vars[idx1+1] | -mgr.vars[idx2+1]) #OR: one clause must be true # sdd count starts at 1
                         delta.ref()
                         old_delta.deref()
 
-                '''# NONZERO CONSTRAINTS HERE
+                old_alpha = alpha
+                alpha = alpha & delta
+                alpha.ref()
+                old_alpha.deref()
+                
+        
+            print("alpha after delta hierarchy:", alpha.is_true(), alpha.is_false(), alpha.model_count())
 
-                if layer_map[i] in nz_layers:
-                    zeta = mgr.false()
-                    zeta.ref()
-                    for s in species: # loop to OR every species
-                        old_zeta = zeta
-                        zeta = zeta | mgr.vars[s+1] #either False or select one
-                        zeta.ref()
-                        old_zeta.deref()
-
-                    old_delta = delta
-                    delta = delta & zeta
-                    delta.ref()
-                    old_delta.deref()
-                    #zeta.deref()'''
-
-            old_alpha = alpha
-            alpha = alpha & delta
-            alpha.ref()
-            old_alpha.deref()
+            # NONZERO CONSTRAINTS HERE
             
+            
+            for i in range(R.size(0)): 
+                zeta = mgr.false()
+                zeta.ref()
+                if layer_map[i] not in nz_layers:
+                    continue
+                
+                species_nz = [j for j in range(R.size(0)) if R[i][j] and layer_map[j] == layer_map[i] + 1]
+                if not species_nz:
+                    continue
+                for s in species_nz: # loop to OR every species
+                    old_zeta = zeta
+                    # A -> B => -A | A = -A | B
+                    #check for 1 single parent-child pair (from beta downwards): should go down by 1
+                    #Write down on paper the truth table
+                    #without constraints: 2^n + 1
+                    zeta = zeta | mgr.vars[s+1] #select one #negative?
+                    zeta.ref()
+                    old_zeta.deref()
+
+                old_alpha = alpha
+                alpha = alpha & zeta
+                alpha.ref()
+                old_alpha.deref()   '''            
+
+            
+            
+            print("alpha after zeta hierarchy:", alpha.is_true(), alpha.is_false(), alpha.model_count())
+
+            print("delta (mutual exclusivity):", delta.is_true(), delta.is_false(), delta.model_count())
+
+            print("zeta (nonzero):", zeta.is_true(), zeta.is_false(), zeta.model_count())
+            #quit()
 
             alpha.save(str.encode('constraints/' + dataset_name + '_excl'+ '.sdd'))
             alpha.vtree().save(str.encode('constraints/' + dataset_name + '_excl'+ '.vtree'))
+            
+
 
         # Create circuit object
         cmpe = CircuitMPE('constraints/' + dataset_name + '_excl'+ '.vtree', 'constraints/' + dataset_name + '_excl'+ '.sdd')
@@ -698,8 +817,8 @@ def main():
     pretrained = args.pretrained
     #checkpoint_model = torch.load(best_file)
     #checkpoint_gate = torch.load(re.sub("model", "gate", str(best_file)))
-    checkpoint_model = torch.load("models/250813_model-d_wos_model.pth", weights_only=False)
-    checkpoint_gate = torch.load("models/250813_model-d_wos_gate.pth")
+    checkpoint_model = torch.load("models/250825_model-d_wos_me_nz_model.pth", weights_only=False)
+    checkpoint_gate = torch.load("models/250825_model-d_wos_me_nz_gate.pth")
     if pretrained == True:
         full_model = checkpoint_model["model_state_dict"]
         backbone_state_dict = {k.replace('backbone.', ''):v for k, v in full_model.items() if k.startswith('backbone.')} # extract only the backbone states
@@ -1049,7 +1168,9 @@ def main():
         #Create confusion matrix per class for test set only
         if args.species_only:
             matrix_names = ["species"]
-            num_classes_per_level = hierarchy_num[data][-1]
+            num_classes_per_level = [hierarchy_num[data][-1]]
+            #print(type(num_classes_per_level))
+
             
         else:
             matrix_names = hierarchy_levels[data]

@@ -496,7 +496,7 @@ def compute_ancestor_matrix(A, device, transpose=True, no_constraints=False):
 
 # Layer mapping independent of vtree file
 
-def layer_mapping_BFS(g): #g = nx.DiGraph(mat)
+def layer_mapping_BFS_old(g): #g = nx.DiGraph(mat)
     #calculate the in-degree of each node: the number of incoming edges to that node
     in_degrees = dict(g.in_degree()) # {node:deg}
     roots = [node for node, deg in in_degrees.items() if deg == 0]
@@ -512,6 +512,29 @@ def layer_mapping_BFS(g): #g = nx.DiGraph(mat)
 
     return layer_map
 
+def layer_mapping_BFS(g, num_start_nodes=1): # use 1 for those with root nodes, so the layer map would always be 1-indexed
+    """
+    g: a directed graph (nx.DiGraph) NOTE: edges of g = nx.DiGraph(mat) might be pointed up instead of down
+    num_start_nodes: number of nodes to treat as level 1 if no roots exist
+    """
+    in_degrees = dict(g.in_degree())
+    roots = [node for node, deg in in_degrees.items() if deg == 0]
+
+    if roots:
+        start_nodes = roots
+    else:
+        start_nodes = list(g.nodes())[:num_start_nodes]
+
+    layer_map = {}
+    queue = [(node, 1) for node in start_nodes]  # always 1-indexed
+
+    while queue:
+        node, depth = queue.pop(0)
+        if node not in layer_map:
+            layer_map[node] = depth
+            queue.extend((child, depth + 1) for child in g.successors(node))
+
+    return layer_map
 
 def get_constr_out(x, R):
     """ Given the output of the neural network x returns the output of MCM given the hierarchy constraint expressed in the matrix R """

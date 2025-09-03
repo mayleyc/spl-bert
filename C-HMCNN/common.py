@@ -33,7 +33,8 @@ csv_path_full = "CUB/bird_info.csv"
 csv_path_mini = "CUB/bird_info_mini.csv"
 mat_path_dict = {"amazon":"amazon_tax_matrix.npy", 
                  "bgc":"bgc_tax_matrix.npy", 
-                 "wos":"wos_tax_matrix.npy"}
+                 "wos":"wos_tax_matrix.npy",
+                 "custom":"custom.npy"}
 mat_path_mini = "cub_matrix_mini.npy"
 #images_dir = "CUB/CUB_200_2011/images"
 weights_dir = "models"
@@ -512,21 +513,21 @@ def layer_mapping_BFS_old(g): #g = nx.DiGraph(mat)
 
     return layer_map
 
-def layer_mapping_BFS(g, num_start_nodes=1): # use 1 for those with root nodes, so the layer map would always be 1-indexed
+def layer_mapping_BFS(g, num_start_nodes=1):
     """
     g: a directed graph (nx.DiGraph) NOTE: edges of g = nx.DiGraph(mat) might be pointed up instead of down
-    num_start_nodes: number of nodes to treat as level 1 if no roots exist
+    num_start_nodes: number of nodes to treat as level 0 if no roots exist
     """
     in_degrees = dict(g.in_degree())
-    roots = [node for node, deg in in_degrees.items() if deg == 0]
+    root = [node for node, deg in in_degrees.items() if deg == 0]
 
-    if roots:
-        start_nodes = roots
+    if root:
+        start_nodes = root
     else:
         start_nodes = list(g.nodes())[:num_start_nodes]
 
     layer_map = {}
-    queue = [(node, 1) for node in start_nodes]  # always 1-indexed
+    queue = [(node, 0) for node in start_nodes]  # always 0-indexed
 
     while queue:
         node, depth = queue.pop(0)
